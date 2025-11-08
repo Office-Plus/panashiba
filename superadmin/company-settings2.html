@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Settings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #2196F3;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .editable {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .editable:hover {
+            background-color: #e3f2fd;
+        }
+
+        .editable input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #2196F3;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            background-color: rgba(76, 175, 80, 0.9);
+        }
+
+        .notification.error {
+            background-color: rgba(244, 67, 54, 0.9);
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .search-container button:hover {
+            background-color: #1976D2;
+        }
+
+        .company-code {
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Company Settings</h1>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Enter company code...">
+            <button id="proceedButton">Proceed</button>
+        </div>
+
+        <table>
+            <thead id="tableHeader">
+                <tr>
+                    <th>Company Code</th>
+                    <th>Loading fields...</th>
+                </tr>
+            </thead>
+            <tbody id="companyTable"></tbody>
+        </table>
+        <div id="loading" class="loading" style="display: none;">Loading company settings...</div>
+    </div>
+
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationMessage"></span>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Create New Company Settings</div>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Company code <span id="modalCompanyCode"></span> does not exist. Would you like to create it with default settings?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="confirmBtn">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Modal elements
+        const modal = document.getElementById('confirmationModal');
+        const modalCompanyCode = document.getElementById('modalCompanyCode');
+        const closeBtn = document.querySelector('.close');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const confirmBtn = document.getElementById('confirmBtn');
+        let pendingCompanyCode = null;
+
+        // Show notification function
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            notification.className = `notification ${type}`;
+            messageEl.textContent = message;
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Show modal function
+        function showModal(companyCode) {
+            console.log('showModal called with company code:', companyCode);
+            pendingCompanyCode = companyCode;
+            console.log('pendingCompanyCode set to:', pendingCompanyCode);
+            modalCompanyCode.textContent = companyCode;
+            modal.style.display = 'block';
+        }
+
+        // Hide modal function
+        function hideModal() {
+            console.log('hideModal called, current pendingCompanyCode:', pendingCompanyCode);
+            modal.style.display = 'none';
+            // Don't reset pendingCompanyCode here, as we need it for the create operation
+            // pendingCompanyCode = null;
+        }
+
+        // Close modal when clicking the close button or outside the modal
+        closeBtn.addEventListener('click', hideModal);
+        cancelBtn.addEventListener('click', hideModal);
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                hideModal();
+            }
+        });
+
+        // Confirm button click handler
+        confirmBtn.addEventListener('click', function() {
+            console.log('Confirm button clicked');
+            console.log('Current pendingCompanyCode:', pendingCompanyCode);
+            
+            if (pendingCompanyCode) {
+                console.log('Confirm button clicked for company code:', pendingCompanyCode);
+                try {
+                    console.log('About to call createCompanySettings function');
+                    createCompanySettings(pendingCompanyCode);
+                    console.log('createCompanySettings function called successfully');
+                } catch (error) {
+                    console.error('Error in confirm button handler:', error);
+                }
+            } else {
+                console.log('No pending company code found');
+                // Try to get the company code from the search input as a fallback
+                const searchInput = document.getElementById('searchInput');
+                const companyCode = searchInput.value.trim();
+                if (companyCode) {
+                    console.log('Using company code from search input:', companyCode);
+                    createCompanySettings(companyCode);
+                } else {
+                    showNotification('Please enter a company code', 'error');
+                }
+            }
+            
+            // Hide the modal after processing
+            modal.style.display = 'none';
+        });
+
+        // Create new company settings
+        async function createCompanySettings(companyCode) {
+            console.log('createCompanySettings function started for company code:', companyCode);
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                // Create the companysettings document with default values
+                const defaultSettings = {
+                    geoFenceDistance: '.',
+                    geoFenceEnabled: '.',
+                    geoFenceLat: '.',
+                    geoFenceLng: '.',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                
+                console.log('Creating company settings for:', companyCode);
+                console.log('Path:', `attendance/att/${companyCode}/companysettings`);
+                
+                // Check if Firebase is properly initialized
+                console.log('Firebase app initialized:', firebase.apps.length > 0);
+                console.log('Firestore instance:', db ? 'Available' : 'Not available');
+                
+                // Ensure the 'att' document exists first
+                console.log('Checking if att document exists...');
+                const attRef = db.collection('attendance').doc('att');
+                const attDoc = await attRef.get();
+                console.log('Att document exists:', attDoc.exists);
+                
+                if (!attDoc.exists) {
+                    console.log('Creating att document...');
+                    await attRef.set({ created: new Date() });
+                    console.log('Att document created successfully');
+                }
+                
+                // Create the subcollection and document in one step
+                console.log(`Creating subcollection "${companyCode}" and document "companysettings"...`);
+                
+                // Use a batch write to ensure atomicity
+                const batch = db.batch();
+                
+                // Create a reference to the document
+                const companySettingsRef = db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('companysettings');
+                
+                // Add the set operation to the batch
+                batch.set(companySettingsRef, defaultSettings);
+                
+                // Commit the batch
+                console.log('Committing batch...');
+                await batch.commit();
+                console.log('Batch committed successfully');
+                
+                // Verify the document was created
+                console.log('Verifying document creation...');
+                const verifyDoc = await companySettingsRef.get();
+                console.log('Verification result:', verifyDoc.exists ? 'Document exists' : 'Document does not exist');
+                
+                if (verifyDoc.exists) {
+                    console.log('Document data:', verifyDoc.data());
+                    showNotification(`Created settings for company code: ${companyCode}`);
+                    
+                    // Load the newly created settings
+                    console.log('About to load the newly created settings...');
+                    loadCompanySettings(companyCode);
+                    console.log('Settings loaded successfully');
+                } else {
+                    throw new Error('Document was not created successfully');
+                }
+            } catch (error) {
+                console.error('Error creating company settings:', error);
+                console.error('Error details:', error.message, error.stack);
+                showNotification('Error creating company settings: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Test direct path creation
+        async function testDirectPathCreation(companyCode, defaultSettings) {
+            console.log('Testing direct path creation for company code:', companyCode);
+            try {
+                // Try to create the document directly
+                console.log('Attempting to create document directly...');
+                const directRef = db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('companysettings');
+                
+                await directRef.set(defaultSettings);
+                console.log('Direct path creation successful');
+                
+                // Verify the document was created
+                const verifyDoc = await directRef.get();
+                console.log('Verification result:', verifyDoc.exists ? 'Document exists' : 'Document does not exist');
+                
+                if (verifyDoc.exists) {
+                    console.log('Document data:', verifyDoc.data());
+                }
+            } catch (error) {
+                console.error('Direct path creation test failed:', error);
+                console.error('Error details:', error.message, error.stack);
+                throw new Error('Direct path creation test failed: ' + error.message);
+            }
+        }
+
+        // Check Firebase permissions
+        async function checkFirebasePermissions(companyCode) {
+            console.log('Checking Firebase permissions for company code:', companyCode);
+            try {
+                // Try to read from the path
+                console.log('Testing read permission...');
+                const readTest = await db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('companysettings')
+                    .get();
+                console.log('Read permission test result:', readTest.exists ? 'Document exists' : 'Document does not exist');
+                
+                // Try to write to the path
+                console.log('Testing write permission...');
+                const writeTest = await db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('_permission_test')
+                    .set({
+                        test: true,
+                        timestamp: new Date()
+                    });
+                console.log('Write permission test successful');
+                
+                // Clean up the test document
+                console.log('Cleaning up test document...');
+                await db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('_permission_test')
+                    .delete();
+                console.log('Test document deleted successfully');
+                
+                console.log('Permission check completed successfully');
+            } catch (error) {
+                console.error('Permission check failed:', error);
+                console.error('Error details:', error.message, error.stack);
+                throw new Error('Permission check failed: ' + error.message);
+            }
+        }
+
+        // Load company settings for a specific company code
+        async function loadCompanySettings(companyCode) {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                // Get the att document
+                const attDoc = await db.collection('attendance').doc('att').get();
+                console.log('Att document path:', 'attendance/att');
+                console.log('Att document exists:', attDoc.exists);
+                
+                if (!attDoc.exists) {
+                    console.log('No att document found');
+                    showNotification('No att document found', 'error');
+                    return;
+                }
+                
+                // Clear the table
+                const tbody = document.getElementById('companyTable');
+                tbody.innerHTML = '';
+                
+                // Get the company settings document
+                console.log('Loading company settings for:', companyCode);
+                console.log('Path:', `attendance/att/${companyCode}/companysettings`);
+                
+                const settingsDoc = await db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('companysettings')
+                    .get();
+                
+                if (settingsDoc.exists) {
+                    const settings = settingsDoc.data();
+                    console.log('Company settings data:', settings);
+                    
+                    // Get field names
+                    const fieldNames = ['companyCode'];
+                    for (const field in settings) {
+                        if (field !== 'updatedAt' && field !== 'createdAt') {
+                            fieldNames.push(field);
+                        }
+                    }
+                    console.log('Field names:', fieldNames);
+                    
+                    // Update table header
+                    const headerRow = document.getElementById('tableHeader').querySelector('tr');
+                    headerRow.innerHTML = '';
+                    fieldNames.forEach(field => {
+                        const th = document.createElement('th');
+                        th.textContent = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+                        headerRow.appendChild(th);
+                    });
+                    
+                    // Create table row
+                    const tr = document.createElement('tr');
+                    
+                    // Add company code cell
+                    const codeCell = document.createElement('td');
+                    codeCell.className = 'company-code';
+                    codeCell.textContent = companyCode;
+                    tr.appendChild(codeCell);
+                    
+                    // Add other fields
+                    for (let i = 1; i < fieldNames.length; i++) {
+                        const field = fieldNames[i];
+                        const td = document.createElement('td');
+                        td.className = 'editable';
+                        td.dataset.company = companyCode;
+                        td.dataset.field = field;
+                        td.textContent = settings[field] || '';
+                        tr.appendChild(td);
+                    }
+                    
+                    tbody.appendChild(tr);
+                    showNotification(`Loaded settings for company code: ${companyCode}`);
+                } else {
+                    console.log('No company settings found for:', companyCode);
+                    // Show confirmation modal instead of error notification
+                    showModal(companyCode);
+                }
+            } catch (error) {
+                console.error('Error loading company settings:', error);
+                showNotification('Error loading company settings', 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Handle inline editing
+        document.getElementById('companyTable').addEventListener('click', function(e) {
+            const cell = e.target.closest('.editable');
+            if (!cell) return;
+
+            const currentValue = cell.textContent;
+            const input = document.createElement('input');
+            input.value = currentValue;
+            input.style.width = '100%';
+            
+            cell.textContent = '';
+            cell.appendChild(input);
+            input.focus();
+
+            input.addEventListener('blur', async function() {
+                const newValue = this.value.trim();
+                const companyCode = cell.dataset.company;
+                const field = cell.dataset.field;
+                
+                try {
+                    console.log('Updating field:', field, 'for company:', companyCode, 'with value:', newValue);
+                    console.log('Update path:', `attendance/att/${companyCode}/companysettings`);
+                    
+                    // Update the document at the correct path
+                    await db.collection('attendance')
+                        .doc('att')
+                        .collection(companyCode)
+                        .doc('companysettings')
+                        .set({
+                            [field]: newValue,
+                            updatedAt: new Date()
+                        }, { merge: true });
+
+                    cell.textContent = newValue;
+                    showNotification('Settings updated successfully');
+                } catch (error) {
+                    console.error('Error updating settings:', error);
+                    cell.textContent = currentValue;
+                    showNotification('Error updating settings', 'error');
+                }
+            });
+
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.blur();
+                }
+            });
+        });
+
+        // Handle proceed button click
+        document.getElementById('proceedButton').addEventListener('click', function() {
+            const companyCode = document.getElementById('searchInput').value.trim();
+            if (companyCode) {
+                loadCompanySettings(companyCode);
+            } else {
+                showNotification('Please enter a company code', 'error');
+            }
+        });
+
+        // Handle enter key in search input
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const companyCode = this.value.trim();
+                if (companyCode) {
+                    loadCompanySettings(companyCode);
+                } else {
+                    showNotification('Please enter a company code', 'error');
+                }
+            }
+        });
+
+        // Load company settings for company code 1 by default
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded event fired');
+            
+            // Test Firebase connectivity
+            testFirebaseConnection();
+            
+            // Get the company code from the URL if available
+            const urlParams = new URLSearchParams(window.location.search);
+            const defaultCompanyCode = urlParams.get('companyCode');
+            
+            // Only load company settings if a company code is provided in the URL
+            if (defaultCompanyCode) {
+                loadCompanySettings(defaultCompanyCode);
+            }
+        });
+        
+        // Test Firebase connectivity
+        async function testFirebaseConnection() {
+            console.log('Testing Firebase connectivity...');
+            try {
+                // Check if Firebase is initialized
+                console.log('Firebase initialized:', firebase.apps.length > 0);
+                
+                if (firebase.apps.length === 0) {
+                    console.error('Firebase is not initialized!');
+                    return;
+                }
+                
+                // Try to access Firestore
+                console.log('Testing Firestore access...');
+                const testDoc = await db.collection('test').doc('test').get();
+                console.log('Firestore test successful:', testDoc.exists ? 'Document exists' : 'Document does not exist');
+                
+                // Try to write to Firestore
+                console.log('Testing Firestore write...');
+                await db.collection('test').doc('test').set({
+                    timestamp: new Date(),
+                    test: 'success'
+                });
+                console.log('Firestore write test successful');
+                
+                showNotification('Firebase connection test successful', 'success');
+            } catch (error) {
+                console.error('Firebase connection test failed:', error);
+                console.error('Error details:', error.message, error.stack);
+                showNotification('Firebase connection test failed: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html> 

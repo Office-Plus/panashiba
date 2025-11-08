@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Rights Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 900;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #2196F3;
+        }
+
+        .welcome-message {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 70px auto 0;
+            padding: 20px;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #2196F3;
+            color: white;
+            font-weight: 500;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .editable:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+        .editing {
+            background-color: #fff !important;
+            border: 1px solid #0d6efd !important;
+        }
+        .rights-btn {
+            cursor: pointer;
+            color: #0d6efd;
+        }
+        .rights-btn:hover {
+            color: #0a58ca;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%;
+            border-radius: 5px;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .page-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .page-item {
+            margin-bottom: 8px;
+        }
+        .page-item.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 0.2em solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="menuContainer"></div>
+
+    <div class="header">
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="welcome-message" id="welcomeMessage"></div>
+    </div>
+
+    <div class="container">
+        <h2>User Rights Management</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Company Code</th>
+                        <th>User Level</th>
+                        <th>Page Rights</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <!-- Data will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Rights Modal -->
+    <div id="rightsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Page Access Rights</h5>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="loadingPages" class="text-center mb-3">
+                    <span class="loading-spinner"></span> Loading available pages...
+                </div>
+                <div class="page-list">
+                    <!-- Pages will be populated here -->
+                </div>
+                <button class="btn btn-primary" id="saveRights">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
+    <script src="menu.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentUserId = null;
+        const modal = document.getElementById('rightsModal');
+        const closeBtn = document.querySelector('.close');
+        const saveRightsBtn = document.getElementById('saveRights');
+        const loadingPages = document.getElementById('loadingPages');
+        const pageList = document.querySelector('.page-list');
+
+        // Load menu and check authentication
+        fetch('menu.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('menuContainer').innerHTML = html;
+            });
+
+        // Check authentication
+        const storedUserEmail = localStorage.getItem('userEmail');
+        const storedUserId = localStorage.getItem('userId');
+        const storedCompanyCode = localStorage.getItem('companyCode');
+        
+        if (!storedUserEmail || !storedUserId) {
+            window.location.href = 'login.html';
+        } else {
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${storedUserEmail}`;
+        }
+
+        // Function to fetch menu items from the server
+        async function fetchMenuItems() {
+            // Directly return the menu items as an array
+            // You can edit this array to add/remove menu pages
+            const menuItems = [
+                'dashboard',
+                'brands',
+                'category',
+                'department-master',
+                // 'employee-master', // commented out as requested
+                'new-complaint',
+                'service-agents',
+                'settings',
+                'user-rights'
+            ];
+            // Simulate async for compatibility
+            loadingPages.style.display = 'none';
+            pageList.style.display = 'block';
+            return menuItems;
+        }
+
+        // Function to load users
+        async function loadUsers() {
+            const userTableBody = document.getElementById('userTableBody');
+            userTableBody.innerHTML = '';
+
+            try {
+                // Query users with the same companyCode
+                const snapshot = await db.collection('users')
+                    .where('companyCode', '==', storedCompanyCode)
+                    .get();
+                
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.email || ''}</td>
+                        <td class="editable" data-field="companyCode" data-doc-id="${doc.id}">${user.companyCode || ''}</td>
+                        <td>
+                            <select class="form-select user-level-select" data-doc-id="${doc.id}">
+                                <option value="">Select Level</option>
+                                <option value="Admin" ${user.userlevel === 'Admin' ? 'selected' : ''}>Admin</option>
+                                <option value="RemoteAttendance" ${user.userlevel === 'RemoteAttendance' ? 'selected' : ''}>RemoteAttendance</option>
+                                <option value="Viewer" ${user.userlevel === 'Viewer' ? 'selected' : ''}>Viewer</option>
+                            </select>
+                        </td>
+                        <td>
+                            <i class="fas fa-key rights-btn" data-doc-id="${doc.id}"></i>
+                        </td>
+                    `;
+                    userTableBody.appendChild(row);
+                });
+
+                // Add event listeners for editable fields
+                setupEditableFields();
+                setupUserLevelSelects();
+                setupRightsButtons();
+            } catch (error) {
+                console.error("Error loading users:", error);
+            }
+        }
+
+        // Setup rights buttons
+        function setupRightsButtons() {
+            const rightsButtons = document.querySelectorAll('.rights-btn');
+            rightsButtons.forEach(button => {
+                button.addEventListener('click', async function() {
+                    currentUserId = this.dataset.docId;
+                    await showRightsModal(currentUserId);
+                });
+            });
+        }
+
+        // Show rights modal
+        async function showRightsModal(userId) {
+            pageList.innerHTML = '';
+            
+            try {
+                // Fetch menu items
+                const menuItems = await fetchMenuItems();
+                
+                // Get user data
+                const userDoc = await db.collection('users').doc(userId).get();
+                const userData = userDoc.data();
+                const userRights = userData.userRights || [];
+
+                // Create checkboxes for each menu item
+                menuItems.forEach(page => {
+                    const isChecked = userRights.includes(page);
+                    const isDisabled = page === 'dashboard';
+                    const div = document.createElement('div');
+                    div.className = `page-item ${isDisabled ? 'disabled' : ''}`;
+                    div.innerHTML = `
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" 
+                                value="${page}" 
+                                id="page_${page}" 
+                                ${isChecked ? 'checked' : ''} 
+                                ${isDisabled ? 'disabled' : ''}>
+                            <label class="form-check-label" for="page_${page}">
+                                ${page.charAt(0).toUpperCase() + page.slice(1)}
+                            </label>
+                        </div>
+                    `;
+                    pageList.appendChild(div);
+                });
+
+                modal.style.display = 'block';
+            } catch (error) {
+                console.error("Error loading user rights:", error);
+                pageList.innerHTML = `<div class="alert alert-danger">Error loading user rights: ${error.message}</div>`;
+                modal.style.display = 'block';
+            }
+        }
+
+        // Close modal
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Save rights
+        saveRightsBtn.addEventListener('click', async () => {
+            if (!currentUserId) return;
+
+            const selectedPages = Array.from(document.querySelectorAll('.page-list input[type="checkbox"]:checked'))
+                .map(checkbox => checkbox.value);
+
+            // Ensure dashboard is always included
+            if (!selectedPages.includes('dashboard')) {
+                selectedPages.push('dashboard');
+            }
+
+            try {
+                await db.collection('users').doc(currentUserId).update({
+                    userRights: selectedPages
+                });
+                modal.style.display = 'none';
+                // Reload users to reflect changes
+                loadUsers();
+            } catch (error) {
+                console.error("Error saving user rights:", error);
+            }
+        });
+
+        // Setup editable fields
+        function setupEditableFields() {
+            const editableFields = document.querySelectorAll('.editable');
+            editableFields.forEach(field => {
+                field.addEventListener('click', function() {
+                    const currentValue = this.textContent;
+                    this.innerHTML = `<input type="text" class="form-control" value="${currentValue}">`;
+                    this.classList.add('editing');
+                    const input = this.querySelector('input');
+                    input.focus();
+
+                    input.addEventListener('blur', async function() {
+                        const newValue = this.value;
+                        const docId = field.dataset.docId;
+                        const fieldName = field.dataset.field;
+                        
+                        try {
+                            await db.collection('users').doc(docId).update({
+                                [fieldName]: newValue
+                            });
+                            field.textContent = newValue;
+                            field.classList.remove('editing');
+                        } catch (error) {
+                            console.error("Error updating field:", error);
+                            field.textContent = currentValue;
+                            field.classList.remove('editing');
+                        }
+                    });
+
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            this.blur();
+                        }
+                    });
+                });
+            });
+        }
+
+        // Setup user level selects
+        function setupUserLevelSelects() {
+            const userLevelSelects = document.querySelectorAll('.user-level-select');
+            userLevelSelects.forEach(select => {
+                select.addEventListener('change', async function() {
+                    const docId = this.dataset.docId;
+                    const newValue = this.value;
+                    
+                    try {
+                        await db.collection('users').doc(docId).update({
+                            userlevel: newValue
+                        });
+                    } catch (error) {
+                        console.error("Error updating user level:", error);
+                        // Revert to previous value
+                        this.value = this.getAttribute('data-previous-value') || '';
+                    }
+                });
+
+                // Store initial value
+                select.setAttribute('data-previous-value', select.value);
+            });
+        }
+
+        // Load users when page loads
+        document.addEventListener('DOMContentLoaded', loadUsers);
+    </script>
+</body>
+</html> 

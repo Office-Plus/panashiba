@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Settings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #2196F3;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .editable {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .editable:hover {
+            background-color: #e3f2fd;
+        }
+
+        .editable input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #2196F3;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            background-color: rgba(76, 175, 80, 0.9);
+        }
+
+        .notification.error {
+            background-color: rgba(244, 67, 54, 0.9);
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .search-container button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .search-container button:hover {
+            background-color: #1976D2;
+        }
+
+        .company-code {
+            font-weight: bold;
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Company Settings</h1>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Enter company code...">
+            <button id="proceedButton">Proceed</button>
+        </div>
+
+        <table>
+            <thead id="tableHeader">
+                <tr>
+                    <th>Company Code</th>
+                    <th>Loading fields...</th>
+                </tr>
+            </thead>
+            <tbody id="companyTable"></tbody>
+        </table>
+        <div id="loading" class="loading" style="display: none;">Loading company settings...</div>
+    </div>
+
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationMessage"></span>
+    </div>
+
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Show notification function
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            notification.className = `notification ${type}`;
+            messageEl.textContent = message;
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Load company settings for a specific company code
+        async function loadCompanySettings(companyCode) {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                // Get the att document
+                const attDoc = await db.collection('attendance').doc('att').get();
+                console.log('Att document path:', 'attendance/att');
+                console.log('Att document exists:', attDoc.exists);
+                
+                if (!attDoc.exists) {
+                    console.log('No att document found');
+                    showNotification('No att document found', 'error');
+                    return;
+                }
+                
+                // Clear the table
+                const tbody = document.getElementById('companyTable');
+                tbody.innerHTML = '';
+                
+                // Get the company settings document
+                console.log('Loading company settings for:', companyCode);
+                console.log('Path:', `attendance/att/${companyCode}/companysettings`);
+                
+                const settingsDoc = await db.collection('attendance')
+                    .doc('att')
+                    .collection(companyCode)
+                    .doc('companysettings')
+                    .get();
+                
+                if (settingsDoc.exists) {
+                    const settings = settingsDoc.data();
+                    console.log('Company settings data:', settings);
+                    
+                    // Get field names
+                    const fieldNames = ['companyCode'];
+                    for (const field in settings) {
+                        if (field !== 'updatedAt' && field !== 'createdAt') {
+                            fieldNames.push(field);
+                        }
+                    }
+                    console.log('Field names:', fieldNames);
+                    
+                    // Update table header
+                    const headerRow = document.getElementById('tableHeader').querySelector('tr');
+                    headerRow.innerHTML = '';
+                    fieldNames.forEach(field => {
+                        const th = document.createElement('th');
+                        th.textContent = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+                        headerRow.appendChild(th);
+                    });
+                    
+                    // Create table row
+                    const tr = document.createElement('tr');
+                    
+                    // Add company code cell
+                    const codeCell = document.createElement('td');
+                    codeCell.className = 'company-code';
+                    codeCell.textContent = companyCode;
+                    tr.appendChild(codeCell);
+                    
+                    // Add other fields
+                    for (let i = 1; i < fieldNames.length; i++) {
+                        const field = fieldNames[i];
+                        const td = document.createElement('td');
+                        td.className = 'editable';
+                        td.dataset.company = companyCode;
+                        td.dataset.field = field;
+                        td.textContent = settings[field] || '';
+                        tr.appendChild(td);
+                    }
+                    
+                    tbody.appendChild(tr);
+                    showNotification(`Loaded settings for company code: ${companyCode}`);
+                } else {
+                    console.log('No company settings found for:', companyCode);
+                    showNotification(`No settings found for company code: ${companyCode}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error loading company settings:', error);
+                showNotification('Error loading company settings', 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Handle inline editing
+        document.getElementById('companyTable').addEventListener('click', function(e) {
+            const cell = e.target.closest('.editable');
+            if (!cell) return;
+
+            const currentValue = cell.textContent;
+            const input = document.createElement('input');
+            input.value = currentValue;
+            input.style.width = '100%';
+            
+            cell.textContent = '';
+            cell.appendChild(input);
+            input.focus();
+
+            input.addEventListener('blur', async function() {
+                const newValue = this.value.trim();
+                const companyCode = cell.dataset.company;
+                const field = cell.dataset.field;
+                
+                try {
+                    console.log('Updating field:', field, 'for company:', companyCode, 'with value:', newValue);
+                    console.log('Update path:', `attendance/att/${companyCode}/companysettings`);
+                    
+                    // Update the document at the correct path
+                    await db.collection('attendance')
+                        .doc('att')
+                        .collection(companyCode)
+                        .doc('companysettings')
+                        .set({
+                            [field]: newValue,
+                            updatedAt: new Date()
+                        }, { merge: true });
+
+                    cell.textContent = newValue;
+                    showNotification('Settings updated successfully');
+                } catch (error) {
+                    console.error('Error updating settings:', error);
+                    cell.textContent = currentValue;
+                    showNotification('Error updating settings', 'error');
+                }
+            });
+
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.blur();
+                }
+            });
+        });
+
+        // Handle proceed button click
+        document.getElementById('proceedButton').addEventListener('click', function() {
+            const companyCode = document.getElementById('searchInput').value.trim();
+            if (companyCode) {
+                loadCompanySettings(companyCode);
+            } else {
+                showNotification('Please enter a company code', 'error');
+            }
+        });
+
+        // Handle enter key in search input
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const companyCode = this.value.trim();
+                if (companyCode) {
+                    loadCompanySettings(companyCode);
+                } else {
+                    showNotification('Please enter a company code', 'error');
+                }
+            }
+        });
+
+        // Load company settings for company code 1 by default
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCompanySettings('1');
+        });
+    </script>
+</body>
+</html> 
