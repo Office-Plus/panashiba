@@ -598,7 +598,7 @@
             const syncBtn = document.getElementById('syncBtn');
             const syncBtnText = document.getElementById('syncBtnText');
             
-            // Prevent multiple clicks
+            // Prevent multiple clicks while syncing
             if (syncBtn.classList.contains('syncing')) {
                 return;
             }
@@ -612,7 +612,13 @@
             }
             
             try {
+                // Store old values to compare
+                const oldUserRights = localStorage.getItem('userRights') || '';
+                const oldUserlevel = localStorage.getItem('userlevel') || '';
+                const oldCompanyCode = localStorage.getItem('companyCode') || '';
+                
                 // Show syncing state
+                syncBtn.classList.remove('synced');
                 syncBtn.classList.add('syncing');
                 syncBtnText.textContent = 'Syncing...';
                 
@@ -629,32 +635,61 @@
                 if (userDoc.exists) {
                     const userData = userDoc.data();
                     
+                    // Prepare updated keys message
+                    let updatedKeys = [];
+                    
                     // Save userRights in localStorage (same as login.html)
+                    let newUserRights = '';
                     if (userData.userRights && Array.isArray(userData.userRights)) {
-                        localStorage.setItem('userRights', userData.userRights.join(','));
+                        newUserRights = userData.userRights.join(',');
+                        localStorage.setItem('userRights', newUserRights);
                     } else {
                         localStorage.setItem('userRights', '');
                     }
                     
+                    if (oldUserRights !== newUserRights) {
+                        updatedKeys.push(`User Rights: [${newUserRights || 'none'}]`);
+                    }
+                    
                     // Save userlevel in localStorage (same as login.html)
-                    localStorage.setItem('userlevel', userData.userlevel || 'user');
+                    const newUserlevel = userData.userlevel || 'user';
+                    localStorage.setItem('userlevel', newUserlevel);
+                    
+                    if (oldUserlevel !== newUserlevel) {
+                        updatedKeys.push(`User Level: ${newUserlevel}`);
+                    }
                     
                     // Save companyCode in localStorage (same as login.html)
-                    localStorage.setItem('companyCode', userData.companyCode || companyCode);
+                    const newCompanyCode = userData.companyCode || companyCode;
+                    localStorage.setItem('companyCode', newCompanyCode);
+                    
+                    if (oldCompanyCode !== newCompanyCode) {
+                        updatedKeys.push(`Company Code: ${newCompanyCode}`);
+                    }
                     
                     // Change button to green (synced state)
                     syncBtn.classList.remove('syncing');
                     syncBtn.classList.add('synced');
                     syncBtnText.textContent = 'Synced ✓';
                     
-                    // Show success message
-                    alert('User rights and level synced successfully! The page will reload to apply changes.');
+                    // Show success message with updated keys
+                    let message = 'Sync completed successfully!\n\n';
+                    if (updatedKeys.length > 0) {
+                        message += 'Updated keys:\n' + updatedKeys.join('\n');
+                        message += '\n\nThe page will reload to apply changes.';
+                    } else {
+                        message += 'No changes detected. All keys are up to date.';
+                    }
                     
-                    // Hard refresh page to apply new rights and reload menu
-                    setTimeout(() => {
-                        // Force a hard refresh by setting href to current location
-                        window.location.href = window.location.href;
-                    }, 1000);
+                    alert(message);
+                    
+                    // Hard refresh page only if there were changes
+                    if (updatedKeys.length > 0) {
+                        setTimeout(() => {
+                            // Force a hard refresh by setting href to current location
+                            window.location.href = window.location.href;
+                        }, 1000);
+                    }
                 } else {
                     throw new Error('User document not found in database');
                 }
@@ -664,6 +699,7 @@
                 
                 // Reset button state
                 syncBtn.classList.remove('syncing');
+                syncBtn.classList.remove('synced');
                 syncBtnText.textContent = 'Sync Rights';
             }
         }

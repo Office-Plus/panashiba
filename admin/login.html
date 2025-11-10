@@ -207,16 +207,39 @@
         // Function to handle user record creation/update in the correct path
         async function handleUserRecord(user, companyCode) {
             if (!companyCode) return false;
-            const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', user.uid);
-            const userDoc = await getDoc(userRef);
+            
             const currentDate = new Date();
             const activationTill = new Date();
             activationTill.setDate(activationTill.getDate() + 7);
 
-            if (!userDoc.exists()) {
-                // Create new user record
+            // First, check if a user with this email already exists
+            const usersCollectionRef = collection(db, 'complaints', 'cmplts', companyCode, 'masters', 'users');
+            const q = query(usersCollectionRef, where('email', '==', user.email));
+            const querySnapshot = await getDocs(q);
+
+            let existingDocId = null;
+            let userData = null;
+
+            if (!querySnapshot.empty) {
+                // User with this email already exists
+                const existingDoc = querySnapshot.docs[0];
+                existingDocId = existingDoc.id;
+                userData = existingDoc.data();
+                
+                // Update the existing user record with lastUpdated
+                const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', existingDocId);
+                await updateDoc(userRef, {
+                    lastUpdated: currentDate,
+                    uid: user.uid // Update UID in case it changed (different auth method)
+                });
+                
+                console.log('User already exists, updated lastUpdated field');
+            } else {
+                // No user with this email exists, create new record
+                const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', user.uid);
                 await setDoc(userRef, {
                     email: user.email,
+                    uid: user.uid,
                     lastUpdated: currentDate,
                     activation_till: activationTill,
                     createdAt: currentDate,
@@ -224,24 +247,25 @@
                     userlevel: 'user',
                     companyCode: companyCode
                 });
-                localStorage.setItem('userRights', '');
-                localStorage.setItem('userlevel', 'user');
-                localStorage.setItem('companyCode', companyCode);
-            } else {
-                // Update existing user record
-                await updateDoc(userRef, {
-                    lastUpdated: currentDate
-                });
-                // Store userRights and userlevel in localStorage
-                const userData = userDoc.data();
-                if (userData.userRights && Array.isArray(userData.userRights)) {
-                    localStorage.setItem('userRights', userData.userRights.join(','));
-                } else {
-                    localStorage.setItem('userRights', '');
-                }
-                localStorage.setItem('userlevel', userData.userlevel || 'user');
-                localStorage.setItem('companyCode', userData.companyCode || companyCode);
+                
+                userData = {
+                    userRights: [],
+                    userlevel: 'user',
+                    companyCode: companyCode
+                };
+                
+                console.log('New user created');
             }
+
+            // Store userRights and userlevel in localStorage
+            if (userData.userRights && Array.isArray(userData.userRights)) {
+                localStorage.setItem('userRights', userData.userRights.join(','));
+            } else {
+                localStorage.setItem('userRights', '');
+            }
+            localStorage.setItem('userlevel', userData.userlevel || 'user');
+            localStorage.setItem('companyCode', userData.companyCode || companyCode);
+            
             return true;
         }
 
