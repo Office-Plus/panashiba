@@ -705,6 +705,7 @@
                         <th>Dealer</th>
                         <th>Brand</th>
                         <th>Category</th>
+                        <th>Agent</th>
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Complaint Date</th>
@@ -775,6 +776,7 @@
             month: '',
             closedMonth: ''
         };
+        let agentNamesMap = {}; // Global map to store agent ID to agent name mapping
 
         // Load data when the page loads
         document.addEventListener('DOMContentLoaded', async function() {
@@ -995,6 +997,9 @@
                     // Format closed date for display
                     const closedDateDisplay = formatClosedDate(complaint.closedAt);
                     
+                    // Get agent name from the global map
+                    const agentName = agentNamesMap[complaint.agentId] || 'N/A';
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${complaint.customerName || ''}</td>
@@ -1002,13 +1007,14 @@
                         <td>${complaint.dealer || ''}</td>
                         <td>${complaint.brand || ''}</td>
                         <td>${complaint.category || ''}</td>
+                        <td>${agentName}</td>
                         <td><span class="priority-badge priority-${complaint.priority?.toLowerCase() || 'low'}">${complaint.priority || 'Low'}</span></td>
                         <td><span class="status-badge status-${complaint.status?.toLowerCase() || 'open'}">${complaint.status || 'Open'}</span></td>
                         <td>${complaint.complaintDate || ''}</td>
                         <td>${closedDateDisplay}</td>
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
+                            <!-- <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button> -->
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1201,6 +1207,9 @@
                     // Format closed date for display
                     const closedDateDisplay = formatClosedDate(complaint.closedAt);
                     
+                    // Get agent name from the global map
+                    const agentName = agentNamesMap[complaint.agentId] || 'N/A';
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${complaint.customerName || ''}</td>
@@ -1208,13 +1217,14 @@
                         <td>${complaint.dealer || ''}</td>
                         <td>${complaint.brand || ''}</td>
                         <td>${complaint.category || ''}</td>
+                        <td>${agentName}</td>
                         <td><span class="priority-badge priority-${complaint.priority?.toLowerCase() || 'low'}">${complaint.priority || 'Low'}</span></td>
                         <td><span class="status-badge status-${complaint.status?.toLowerCase() || 'open'}">${complaint.status || 'Open'}</span></td>
                         <td>${complaint.complaintDate || ''}</td>
                         <td>${closedDateDisplay}</td>
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
+                            <!-- <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button> -->
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1403,8 +1413,15 @@
                 agentSelect.innerHTML = '<option value="">Select Agent</option>';
                 searchAgentSelect.innerHTML = '<option value="">All Agents</option>';
 
+                // Clear and populate the agentNamesMap
+                agentNamesMap = {};
+
                 agentsSnapshot.forEach(doc => {
                     const agent = doc.data();
+                    
+                    // Store agent name in the global map
+                    agentNamesMap[doc.id] = agent.agentName;
+                    
                     const option = document.createElement('option');
                     option.value = doc.id;
                     option.textContent = agent.agentName;
