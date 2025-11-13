@@ -301,6 +301,25 @@
             const password = document.getElementById('password').value;
 
             try {
+                // Clear all localStorage before signing in
+                localStorage.clear();
+                
+                // Explicitly remove specific keys to ensure they're gone
+                localStorage.removeItem('companyCode');
+                localStorage.removeItem('normalizedCompanyCode');
+                localStorage.removeItem('userRights');
+                localStorage.removeItem('userlevel');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('lastCheckedVersion');
+                
+                // Remove any complaint cache keys
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('complaintCache_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
                 localStorage.setItem('userEmail', user.email);
@@ -326,6 +345,25 @@
         // Google Sign In
         window.signInWithGoogle = async function() {
             try {
+                // Clear all localStorage before signing in
+                localStorage.clear();
+                
+                // Explicitly remove specific keys to ensure they're gone
+                localStorage.removeItem('companyCode');
+                localStorage.removeItem('normalizedCompanyCode');
+                localStorage.removeItem('userRights');
+                localStorage.removeItem('userlevel');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('lastCheckedVersion');
+                
+                // Remove any complaint cache keys
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('complaintCache_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
                 const result = await signInWithPopup(auth, provider);
                 const user = result.user;
                 localStorage.setItem('userEmail', user.email);

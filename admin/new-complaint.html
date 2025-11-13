@@ -411,6 +411,11 @@
             color: #388e3c;
         }
 
+        .status-cancelled {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
         /* Priority badge */
         .priority-badge {
             padding: 4px 8px;
@@ -667,6 +672,7 @@
                  <select id="searchStatus">
                      <option value="Open" selected>Open</option>
                      <option value="Closed">Closed</option>
+                     <option value="Cancelled">Cancelled</option>
                      <option value="">All Status</option>
                  </select>
                  <select id="searchCategory">
@@ -675,21 +681,21 @@
                  <select id="searchAgent">
                      <option value="">All Agents</option>
                  </select>
-                 <select id="searchMonth">
-                     <option value="">All Months</option>
-                     <option value="01">January</option>
-                     <option value="02">February</option>
-                     <option value="03">March</option>
-                     <option value="04">April</option>
-                     <option value="05">May</option>
-                     <option value="06">June</option>
-                     <option value="07">July</option>
-                     <option value="08">August</option>
-                     <option value="09">September</option>
-                     <option value="10">October</option>
-                     <option value="11">November</option>
-                     <option value="12">December</option>
-                 </select>
+                <select id="searchMonth">
+                    <option value="">Complaints Registered in Month</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
                  <select id="searchClosedMonth">
                      <option value="">Closed Complaints by Month</option>
                      <option value="January">January</option>
@@ -729,7 +735,7 @@
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Complaint Date</th>
-                        <th>Closed Date</th>
+                        <!-- <th>Closed Date</th> -->
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -1107,10 +1113,10 @@
                                 ${complaintTime ? `<span class="time-badge">🕐 ${complaintTime}</span>` : ''}
                             </div>
                         </td>
-                        <td>${closedDateDisplay}</td>
+                        
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
+                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1432,10 +1438,10 @@
                                 ${complaintTime ? `<span class="time-badge">🕐 ${complaintTime}</span>` : ''}
                             </div>
                         </td>
-                        <td>${closedDateDisplay}</td>
+                        
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
+                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1920,12 +1926,12 @@ ${complaintData.companyCode || 'N/A'}
                 };
 
                 console.log('Sending SMS request via PHP proxy...');
-                console.log('Request URL: https://paezr.com/complaint-sms/sendsms.php');
+                console.log('Request URL: https://paezr.com/complaint-sms/pana/sendsms.php');
                 console.log('Request Data:', requestData);
 
                 // Send SMS using PHP proxy to avoid CORS issues
                 // PATH: https://paezr.com/complaint-sms/pana/sendsms.php (hosted online)
-                const response = await fetch("https://paezr.com/complaint-sms/sendsms.php", {
+                const response = await fetch("https://paezr.com/complaint-sms/pana/sendsms.php", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -2137,7 +2143,7 @@ ${complaintData.companyCode || 'N/A'}
                 const headers = [
                     'Customer Name', 'Phone Number', 'Alternate Number', 'Email', 'Address', 'Pin Code',
                     'Dealer', 'Complaint Date', 'Description', 'Category', 'Purchase Date', 'Under Warranty',
-                    'Brand', 'Item Serial Number', 'No. of Products', 'Priority', 'Agent', 'Job Date', 'Job Number', 'Reason', 'Status', 'Closed Date'
+                    'Brand', 'Item Serial Number', 'No. of Products', 'Priority', 'Agent', 'Job Date', 'Job Number', 'Reason', 'Status'
                 ];
                 excelData.push(headers);
 
@@ -2182,8 +2188,7 @@ ${complaintData.companyCode || 'N/A'}
                         complaint.jobDate || '',
                         complaint.jobNumber || '',
                         complaint.reason || '',
-                        complaint.status || 'Open',
-                        closedDateDisplay
+                        complaint.status || 'Open'
                     ];
                     excelData.push(row);
                 });

@@ -136,14 +136,24 @@ window.toggleMasters = function() {
 
 // Logout function
 window.logout = function() {
-    // First clear all localStorage items
-    localStorage.clear();  // This will remove all items including userRights and userlevel
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userId');
+    // Clear all localStorage items
+    localStorage.clear();
+    
+    // Explicitly remove specific keys to ensure they're gone
+    localStorage.removeItem('companyCode');
+    localStorage.removeItem('normalizedCompanyCode');
     localStorage.removeItem('userRights');
     localStorage.removeItem('userlevel');
-    localStorage.removeItem('companyCode');
-    localStorage.removeItem(' faceId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('lastCheckedVersion');
+    
+    // Remove any complaint cache keys
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('complaintCache_')) {
+            localStorage.removeItem(key);
+        }
+    });
     
     // Then handle Firebase signOut
     const auth = firebase.auth();
@@ -151,5 +161,7 @@ window.logout = function() {
         window.location.href = 'login.html';
     }).catch((error) => {
         console.error('Error signing out:', error);
+        // Even if signOut fails, redirect to login
+        window.location.href = 'login.html';
     });
 } 
