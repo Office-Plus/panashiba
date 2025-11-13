@@ -113,7 +113,11 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-top: 20px;
-            height: 400px;
+            min-height: 400px;
+        }
+
+        .chart-container canvas {
+            max-height: 350px;
         }
 
         .version {
@@ -229,6 +233,28 @@
             background-color: #FF9800;
             cursor: not-allowed;
         }
+        
+        .clear-cache-btn {
+            background-color: #9C27B0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .clear-cache-btn:hover {
+            background-color: #7B1FA2;
+        }
+        
+        .clear-cache-btn:active {
+            background-color: #6A1B9A;
+        }
     </style>
 </head>
 <body>
@@ -253,6 +279,10 @@
     <div class="header">
         <button class="menu-btn" onclick="toggleMenu()">☰</button>
         <div class="welcome-message" id="welcomeMessage"></div>
+        <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearComplaintCache()">
+            <span>🗑️</span>
+            <span>Clear Cache</span>
+        </button>
         <button class="sync-btn" id="syncBtn" onclick="syncUserData()">
             <span>🔄</span>
             <span id="syncBtnText">Sync Rights</span>
@@ -265,17 +295,33 @@
     <div class="main-content">
         <div class="dashboard-grid">
             <div class="card">
-                <h2>Total Trades</h2>
+                <h2>📂 Total Open Complaints</h2>
                 <div class="card-content">
-                    <div class="stat-value" id="totalTrades">0</div>
-                    <div class="stat-label">Last 30 days</div>
+                    <div class="stat-value" id="totalOpenComplaints">
+                        <span style="font-size: 16px; color: #666;">Loading...</span>
+                    </div>
+                    <div class="stat-label">All open complaints till date</div>
+                    <div class="activation-info" style="font-size: 12px; color: #999;">
+                        <div>Cache: <span id="cacheInfo">Initializing...</span></div>
+                    </div>
                 </div>
             </div>
             <div class="card">
-                <h2>Win Rate</h2>
+                <h2>✅ Total Closed Complaints</h2>
                 <div class="card-content">
-                    <div class="stat-value" id="winRate">0%</div>
-                    <div class="stat-label">Last 30 days</div>
+                    <div class="stat-value" id="totalClosedComplaints">
+                        <span style="font-size: 16px; color: #666;">Loading...</span>
+                    </div>
+                    <div class="stat-label">All closed complaints till date</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>🆕 Today's New Complaints</h2>
+                <div class="card-content">
+                    <div class="stat-value" id="todayComplaints">
+                        <span style="font-size: 16px; color: #666;">Loading...</span>
+                    </div>
+                    <div class="stat-label" id="todayLabel">Today's date</div>
                 </div>
             </div>
             <div class="card">
@@ -292,8 +338,8 @@
         </div>
 
         <div class="chart-container">
-            <h2>Performance Chart</h2>
-            <div id="performanceChart"></div>
+            <h2>📊 Complaints Status Overview</h2>
+            <canvas id="performanceChart"></canvas>
         </div>
     </div>
 
@@ -303,6 +349,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    
+    <!-- Add Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
     <script src="menu.js"></script>
     <script>
         // Load the menu
@@ -312,13 +362,14 @@
                 document.getElementById('menuContainer').innerHTML = html;
             });
 
-        // Check authentication using local storage
-        const userId = localStorage.getItem('userId');
+        // Check authentication using local storage (on page load)
+        const initialUserEmail = localStorage.getItem('userEmail');
+        const initialUserId = localStorage.getItem('userId');
         
-        if (!userEmail || !userId) {
+        if (!initialUserEmail || !initialUserId) {
             window.location.href = 'login.html';
         } else {
-            document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}`;
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${initialUserEmail}`;
         }
 
         // Firebase configuration
@@ -338,30 +389,40 @@
 
         // Function to fetch user-specific data
         async function fetchUserData() {
+            console.log('=== fetchUserData CALLED ===');
             const userEmail = localStorage.getItem('userEmail');
             const userId = localStorage.getItem('userId');
             const userLevel = localStorage.getItem('userlevel');
+            const companyCode = localStorage.getItem('companyCode');
+            
+            console.log('User info:', { userEmail, userId, userLevel, companyCode });
             
             if (!userEmail || !userId) {
+                console.log('No user credentials, redirecting to login');
                 window.location.href = 'login.html';
                 return;
             }
 
             // If userlevel exists in localStorage and is not null, skip access restriction
             if (userLevel && userLevel !== 'null') {
+                console.log('✓ User level exists in localStorage:', userLevel);
+                console.log('✓ Company code:', companyCode);
+                
                 // Hide popup and blur if they were shown
                 document.getElementById('blurOverlay').style.display = 'none';
                 document.getElementById('accessPopup').style.display = 'none';
                 
-                // Continue with the rest of the function
-                try {
-                    const userDoc = await db.collection('users').doc(userId).get();
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        continueWithUserData(userData);
-                    }
-                } catch (error) {
-                    console.error('Error fetching data:', error);
+                // Directly load complaint counts since we already have companyCode
+                if (companyCode) {
+                    console.log('🚀 Calling getComplaintCounts directly...');
+                    getComplaintCounts().catch(err => {
+                        console.error('Error calling getComplaintCounts:', err);
+                    });
+                } else {
+                    console.error('❌ No company code found in localStorage');
+                    document.getElementById('totalOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('totalClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('todayComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
                 }
                 return;
             }
@@ -473,8 +534,170 @@
             }
         }
         
+        // Smart caching function for complaint counts
+        async function getComplaintCounts() {
+            console.log('=== getComplaintCounts STARTED ===');
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+                console.log('Company code:', companyCode);
+                
+                if (!companyCode) {
+                    console.error('Company code not found in localStorage');
+                    document.getElementById('totalOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('totalClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('todayComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('cacheInfo').textContent = 'Company code missing';
+                    return;
+                }
+
+                // Display the Firestore path in console for debugging
+                const basePath = `complaints/cmplts/${companyCode}/complaints/complaints-coll`;
+                console.log('📂 Base Firestore Path:', basePath);
+                console.log('📂 Open Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open')`);
+                console.log('📂 Closed Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Closed')`);
+                console.log('📂 Today Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open') → where(complaintDate==today)`);
+
+                // Get today's date in YYYY-MM-DD format
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                
+                // Get yesterday's date
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                // Get cache from localStorage
+                const cacheKey = `complaintCache_${companyCode}`;
+                let cache = localStorage.getItem(cacheKey);
+                let cacheData = cache ? JSON.parse(cache) : null;
+
+                let historicalOpenCount = 0;
+                let historicalClosedCount = 0;
+                let needsFullQuery = false;
+
+                // Check if cache exists and is valid (last query was yesterday)
+                if (cacheData && cacheData.lastQueryDate === yesterdayStr) {
+                    console.log('✓ Using cached historical data from yesterday');
+                    historicalOpenCount = cacheData.openCount || 0;
+                    historicalClosedCount = cacheData.closedCount || 0;
+                    document.getElementById('cacheInfo').textContent = `Last cached: ${yesterdayStr}`;
+                } else {
+                    console.log('⚠ Cache invalid or missing, querying historical data...');
+                    needsFullQuery = true;
+                    document.getElementById('cacheInfo').textContent = 'Building cache...';
+                }
+
+                // Query today's complaints (always fresh)
+                console.log('📊 Querying today\'s complaints...');
+                document.getElementById('cacheInfo').textContent = 'Loading today\'s data...';
+                
+                const todayOpenSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Open')
+                    .where('complaintDate', '==', todayStr)
+                    .get();
+
+                const todayClosedSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Closed')
+                    .where('complaintDate', '==', todayStr)
+                    .get();
+
+                const todayOpenCount = todayOpenSnapshot.size;
+                const todayClosedCount = todayClosedSnapshot.size;
+                
+                console.log(`✓ Today's Open: ${todayOpenCount}, Today's Closed: ${todayClosedCount}`);
+
+                // If we need to query historical data (cache invalid/missing)
+                if (needsFullQuery) {
+                    console.log('📊 Querying historical data (up to yesterday)...');
+                    
+                    // Query all open complaints up to yesterday
+                    const historicalOpenSnapshot = await db.collection('complaints')
+                        .doc('cmplts')
+                        .collection(companyCode)
+                        .doc('complaints')
+                        .collection('complaints-coll')
+                        .where('companyCode', '==', companyCode)
+                        .where('status', '==', 'Open')
+                        .where('complaintDate', '<=', yesterdayStr)
+                        .get();
+
+                    // Query all closed complaints up to yesterday
+                    const historicalClosedSnapshot = await db.collection('complaints')
+                        .doc('cmplts')
+                        .collection(companyCode)
+                        .doc('complaints')
+                        .collection('complaints-coll')
+                        .where('companyCode', '==', companyCode)
+                        .where('status', '==', 'Closed')
+                        .where('complaintDate', '<=', yesterdayStr)
+                        .get();
+
+                    historicalOpenCount = historicalOpenSnapshot.size;
+                    historicalClosedCount = historicalClosedSnapshot.size;
+
+                    console.log(`✓ Historical Open: ${historicalOpenCount}, Historical Closed: ${historicalClosedCount}`);
+
+                    // Save to cache
+                    const newCache = {
+                        lastQueryDate: yesterdayStr,
+                        openCount: historicalOpenCount,
+                        closedCount: historicalClosedCount,
+                        cachedAt: new Date().toISOString()
+                    };
+                    localStorage.setItem(cacheKey, JSON.stringify(newCache));
+                    console.log('✓ Cache saved successfully');
+                    document.getElementById('cacheInfo').textContent = `Cached on: ${yesterdayStr}`;
+                }
+
+                // Calculate totals
+                const totalOpen = historicalOpenCount + todayOpenCount;
+                const totalClosed = historicalClosedCount + todayClosedCount;
+
+                console.log(`📈 TOTALS - Open: ${totalOpen}, Closed: ${totalClosed}`);
+
+                // Update UI
+                document.getElementById('totalOpenComplaints').innerHTML = `<span style="color: #2196F3;">${totalOpen}</span>`;
+                document.getElementById('totalClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${totalClosed}</span>`;
+                document.getElementById('todayComplaints').innerHTML = `<span style="color: #FF9800;">${todayOpenCount}</span>`;
+                document.getElementById('todayLabel').textContent = `Open complaints on ${todayStr}`;
+                
+                // Log results to console
+                console.log('📊 RESULTS BREAKDOWN:');
+                console.log(`  - Open Total: ${totalOpen} (${historicalOpenCount} cached + ${todayOpenCount} today)`);
+                console.log(`  - Closed Total: ${totalClosed} (${historicalClosedCount} cached + ${todayClosedCount} today)`);
+                console.log(`  - Today's Open: ${todayOpenCount}`);
+
+                // Render the chart with the data
+                renderComplaintChart(totalOpen, totalClosed);
+
+            } catch (error) {
+                console.error('=== ERROR in getComplaintCounts ===');
+                console.error('Error details:', error);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+                document.getElementById('totalOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error: ' + error.message + '</span>';
+                document.getElementById('totalClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error</span>';
+                document.getElementById('todayComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error</span>';
+                document.getElementById('cacheInfo').textContent = 'Error: ' + error.message;
+            }
+            console.log('=== getComplaintCounts ENDED ===');
+        }
+
         // Function to continue with user data processing
         function continueWithUserData(userData) {
+            console.log('=== continueWithUserData CALLED ===');
+            console.log('userData:', userData);
+            
             // Handle activation_till field
             let activationTill;
             if (userData.activation_till) {
@@ -549,38 +772,124 @@
                     });
             }
             
-            // Get trading data
-            const userEmail = localStorage.getItem('userEmail');
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            // Load complaint counts with smart caching
+            console.log('=== Calling getComplaintCounts from continueWithUserData ===');
+            getComplaintCounts().catch(err => {
+                console.error('Error calling getComplaintCounts:', err);
+            });
+        }
 
-            db.collection('indibull')
-                .doc('martingale')
-                .collection('nifty50')
-                .where('userEmail', '==', userEmail)
-                .where('startTime', '>=', thirtyDaysAgo)
-                .get()
-                .then(snapshot => {
-                    let totalTrades = 0;
-                    let winningTrades = 0;
-                    let totalPnL = 0;
+        // Global chart variable
+        let complaintChart = null;
 
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        totalTrades++;
-                        if (data.totalPnL > 0) winningTrades++;
-                        totalPnL += data.totalPnL || 0;
-                    });
+        // Function to render complaint status chart
+        function renderComplaintChart(openCount, closedCount) {
+            console.log('=== Rendering Complaint Chart ===');
+            console.log('Open:', openCount, 'Closed:', closedCount);
+            
+            const ctx = document.getElementById('performanceChart');
+            if (!ctx) {
+                console.error('Chart canvas not found');
+                return;
+            }
 
-                    document.getElementById('totalTrades').textContent = totalTrades;
-                    document.getElementById('winRate').textContent = totalTrades > 0 
-                        ? `${Math.round((winningTrades / totalTrades) * 100)}%` 
-                        : '0%';
-                    document.getElementById('totalPnL').textContent = `₹${totalPnL.toFixed(2)}`;
-                })
-                .catch(error => {
-                    console.error('Error fetching trading data:', error);
-                });
+            // Destroy existing chart if it exists
+            if (complaintChart) {
+                complaintChart.destroy();
+            }
+
+            // Create new chart
+            complaintChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Open Complaints', 'Closed Complaints'],
+                    datasets: [{
+                        label: 'Complaint Status',
+                        data: [openCount, closedCount],
+                        backgroundColor: [
+                            'rgba(33, 150, 243, 0.8)',  // Blue for Open
+                            'rgba(76, 175, 80, 0.8)'    // Green for Closed
+                        ],
+                        borderColor: [
+                            'rgba(33, 150, 243, 1)',
+                            'rgba(76, 175, 80, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `Total Complaints: ${openCount + closedCount}`,
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    label += value + ' (' + percentage + '%)';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log('✓ Chart rendered successfully');
+        }
+
+        // Function to clear complaint cache and refresh
+        window.clearComplaintCache = async function() {
+            const companyCode = localStorage.getItem('companyCode');
+            if (!companyCode) {
+                alert('Company code not found. Please login again.');
+                return;
+            }
+            
+            const cacheKey = `complaintCache_${companyCode}`;
+            localStorage.removeItem(cacheKey);
+            
+            console.log('🗑️ Cache cleared, refreshing data...');
+            alert('Cache cleared! Refreshing complaint data and chart...');
+            
+            // Reload complaint counts (will also re-render the chart)
+            await getComplaintCounts();
+        }
+
+        // Toggle menu function
+        window.toggleMenu = function() {
+            const menu = document.querySelector('.side-menu');
+            if (menu) {
+                menu.classList.toggle('active');
+            } else {
+                console.warn('Menu element not found');
+            }
         }
 
         // Call fetchUserData when the page loads

@@ -429,6 +429,25 @@
              color: #7b1fa2;
          }
 
+         /* Time badge */
+         .time-badge {
+             display: inline-block;
+             padding: 3px 8px;
+             border-radius: 8px;
+             font-size: 11px;
+             font-weight: 500;
+             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+             color: white;
+             margin-top: 5px;
+             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+         }
+
+         .date-time-cell {
+             display: flex;
+             flex-direction: column;
+             gap: 5px;
+         }
+
          /* Search job number container and button */
          .search-job-number-container {
              position: relative;
@@ -700,6 +719,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th style="width: 50px;">#</th>
                         <th>Customer Name</th>
                         <th>Phone Number</th>
                         <th>Dealer</th>
@@ -777,16 +797,37 @@
             closedMonth: ''
         };
         let agentNamesMap = {}; // Global map to store agent ID to agent name mapping
+        let currentRowNumber = 0; // Global variable for row numbering
 
         // Load data when the page loads
         document.addEventListener('DOMContentLoaded', async function() {
             // Check if user is logged in
             const userEmail = localStorage.getItem('userEmail');
             const userId = localStorage.getItem('userId');
+            const companyCode = localStorage.getItem('companyCode');
+            
+            console.log('=== PAGE LOAD - Checking credentials ===');
+            console.log('User Email:', userEmail);
+            console.log('User ID:', userId);
+            console.log('Company Code:', companyCode);
             
             if (!userEmail || !userId) {
+                console.log('❌ Missing credentials, redirecting to login');
                 window.location.href = 'login.html';
                 return;
+            }
+            
+            if (!companyCode || companyCode === 'null') {
+                console.error('❌ Company Code is missing!');
+                const goToSettings = confirm(
+                    'Company Code is missing!\n\n' +
+                    'You need to set your company code before you can use this feature.\n\n' +
+                    'Click OK to go to Settings and set your company code, or Cancel to stay on this page.'
+                );
+                if (goToSettings) {
+                    window.location.href = 'settings.html?highlight=companyCode';
+                    return;
+                }
             }
             
             // Load menu first
@@ -862,22 +903,29 @@
                  }
              });
 
-                           // Main search button click
-              document.getElementById('searchBtn').addEventListener('click', function() {
-                  // Update current filters from form values
-                  currentFilters.phoneNumber = document.getElementById('searchPhoneNumber').value.toLowerCase();
-                  currentFilters.brand = document.getElementById('searchBrand').value;
-                  currentFilters.status = document.getElementById('searchStatus').value;
-                  currentFilters.category = document.getElementById('searchCategory').value;
-                  currentFilters.agent = document.getElementById('searchAgent').value;
-                  currentFilters.month = document.getElementById('searchMonth').value;
-                  currentFilters.closedMonth = document.getElementById('searchClosedMonth').value;
-                  
-                  // Reset pagination and load complaints
-                  hasMore = true;
-                  lastVisible = null;
-                  loadComplaints(true);
-              });
+                          // Main search button click
+             document.getElementById('searchBtn').addEventListener('click', function() {
+                 console.log('=== SEARCH BUTTON CLICKED ===');
+                 
+                 // Update current filters from form values
+                 currentFilters.phoneNumber = document.getElementById('searchPhoneNumber').value.toLowerCase();
+                 currentFilters.brand = document.getElementById('searchBrand').value;
+                 currentFilters.status = document.getElementById('searchStatus').value;
+                 currentFilters.category = document.getElementById('searchCategory').value;
+                 currentFilters.agent = document.getElementById('searchAgent').value;
+                 currentFilters.month = document.getElementById('searchMonth').value;
+                 currentFilters.closedMonth = document.getElementById('searchClosedMonth').value;
+                 
+                 console.log('Current Filters:', JSON.stringify(currentFilters, null, 2));
+                 console.log('Status filter value:', currentFilters.status);
+                 console.log('Status filter type:', typeof currentFilters.status);
+                 
+                 // Reset pagination and load complaints
+                 hasMore = true;
+                 lastVisible = null;
+                 console.log('Calling loadComplaints(true)...');
+                 loadComplaints(true);
+             });
 
               // Refresh button click
               document.getElementById('refreshBtn').addEventListener('click', function() {
@@ -967,6 +1015,45 @@
             return `${month} ${day}, ${year} at ${displayHours}:${minutes}:${seconds} ${ampm} UTC${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
         }
 
+        // Helper function to extract time from createdAt
+        function formatTimeFromCreatedAt(createdAt) {
+            if (!createdAt) return '';
+            
+            let date = null;
+            
+            // Handle different createdAt formats
+            if (typeof createdAt === 'string') {
+                // If it's already a string like "September 29, 2025 at 1:43:58 PM UTC+5:30"
+                const timeMatch = createdAt.match(/at (\d+:\d+:\d+ [AP]M)/);
+                if (timeMatch) {
+                    return timeMatch[1];
+                }
+                // Try to parse it as a date
+                date = new Date(createdAt);
+            } else if (createdAt.toDate && typeof createdAt.toDate === 'function') {
+                // If it's a Firestore Timestamp
+                date = createdAt.toDate();
+            } else if (createdAt instanceof Date) {
+                // If it's a Date object
+                date = createdAt;
+            } else if (createdAt.seconds) {
+                // If it's a Timestamp object with seconds property
+                date = new Date(createdAt.seconds * 1000);
+            }
+            
+            if (date && !isNaN(date.getTime())) {
+                const hours = date.getHours();
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12;
+                
+                return `${displayHours}:${minutes}:${seconds} ${ampm}`;
+            }
+            
+            return '';
+        }
+
         // Search by complaint job number
         async function searchByComplaintNo(jobNumber) {
             try {
@@ -1000,8 +1087,12 @@
                     // Get agent name from the global map
                     const agentName = agentNamesMap[complaint.agentId] || 'N/A';
                     
+                    // Extract time from createdAt
+                    const complaintTime = formatTimeFromCreatedAt(complaint.createdAt);
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td style="text-align: center; font-weight: bold; color: #666;">1</td>
                         <td>${complaint.customerName || ''}</td>
                         <td>${complaint.phoneNumber || ''}</td>
                         <td>${complaint.dealer || ''}</td>
@@ -1010,11 +1101,16 @@
                         <td>${agentName}</td>
                         <td><span class="priority-badge priority-${complaint.priority?.toLowerCase() || 'low'}">${complaint.priority || 'Low'}</span></td>
                         <td><span class="status-badge status-${complaint.status?.toLowerCase() || 'open'}">${complaint.status || 'Open'}</span></td>
-                        <td>${complaint.complaintDate || ''}</td>
+                        <td>
+                            <div class="date-time-cell">
+                                <div>${complaint.complaintDate || ''}</div>
+                                ${complaintTime ? `<span class="time-badge">🕐 ${complaintTime}</span>` : ''}
+                            </div>
+                        </td>
                         <td>${closedDateDisplay}</td>
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <!-- <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button> -->
+                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -1045,13 +1141,53 @@
 
         // Load complaints with pagination and filters
         async function loadComplaints(reset = false) {
-            if (isLoading || (!hasMore && !reset)) return;
+            console.log('=== loadComplaints CALLED ===');
+            console.log('Reset:', reset);
+            console.log('isLoading:', isLoading, 'hasMore:', hasMore);
+            
+            if (isLoading || (!hasMore && !reset)) {
+                console.log('Skipping load (already loading or no more data)');
+                return;
+            }
             
             try {
                 isLoading = true;
                 document.getElementById('loading').style.display = 'block';
                 
                 const companyCode = localStorage.getItem('companyCode');
+                console.log('Company Code:', companyCode);
+                console.log('Company Code type:', typeof companyCode);
+                console.log('Company Code length:', companyCode ? companyCode.length : 'null');
+
+                // Check if companyCode exists
+                if (!companyCode || companyCode === 'null' || companyCode.trim() === '') {
+                    console.error('❌ ERROR: Company code is missing or invalid!');
+                    console.log('LocalStorage contents:', {
+                        companyCode: localStorage.getItem('companyCode'),
+                        userEmail: localStorage.getItem('userEmail'),
+                        userId: localStorage.getItem('userId'),
+                        userlevel: localStorage.getItem('userlevel')
+                    });
+                    
+                    const goToSettings = confirm(
+                        'Company Code is missing!\n\n' +
+                        'You need to set your company code to view complaints.\n\n' +
+                        'Click OK to go to Settings and set your company code.'
+                    );
+                    
+                    if (goToSettings) {
+                        window.location.href = 'settings.html?highlight=companyCode';
+                    }
+                    
+                    // Clear table and show error
+                    if (reset) {
+                        document.getElementById('complaintTable').innerHTML = '';
+                        currentRowNumber = 0;
+                    }
+                    isLoading = false;
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
 
                 let query = db.collection('complaints')
                     .doc('cmplts')
@@ -1060,12 +1196,18 @@
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode);
 
+                console.log('Building Firestore query with filters:', currentFilters);
+
                 // Apply status filter first (required for Firestore)
                 // If closed month is selected, force status to 'Closed' since we're looking for closed complaints
                 if (currentFilters.closedMonth) {
+                    console.log('✓ Applying closedMonth filter, forcing status to Closed');
                     query = query.where('status', '==', 'Closed');
                 } else if (currentFilters.status) {
+                    console.log('✓ Applying status filter:', currentFilters.status);
                     query = query.where('status', '==', currentFilters.status);
+                } else {
+                    console.log('⚠ No status filter applied (empty string)');
                 }
 
                 // Apply phone number filter if provided
@@ -1105,11 +1247,69 @@
                     query = query.startAfter(lastVisible);
                 }
 
+                console.log('📊 Executing Firestore query...');
                 const snapshot = await query.get();
+                console.log('✓ Query completed. Results:', snapshot.size, 'documents');
+                
+                // Debug: Check actual status values in database
+                if (snapshot.size > 0) {
+                    console.log('First few documents status values:');
+                    snapshot.docs.slice(0, 5).forEach((doc, idx) => {
+                        const data = doc.data();
+                        console.log(`  Doc ${idx + 1}: status = "${data.status}" (type: ${typeof data.status})`);
+                    });
+                }
                 
                 if (snapshot.empty) {
+                    console.log('⚠ No results found for current filters');
+                    
+                    // Diagnostic: Check if ANY closed complaints exist (ignoring other filters)
+                    if (currentFilters.status === 'Closed') {
+                        console.log('🔍 DIAGNOSTIC: Checking if ANY closed complaints exist...');
+                        try {
+                            const testQuery = await db.collection('complaints')
+                                .doc('cmplts')
+                                .collection(companyCode)
+                                .doc('complaints')
+                                .collection('complaints-coll')
+                                .where('companyCode', '==', companyCode)
+                                .where('status', '==', 'Closed')
+                                .limit(5)
+                                .get();
+                            
+                            console.log('📊 Found', testQuery.size, 'closed complaints in database');
+                            if (testQuery.size > 0) {
+                                console.log('Sample closed complaint data:');
+                                testQuery.docs.forEach((doc, idx) => {
+                                    const data = doc.data();
+                                    console.log(`  Closed #${idx + 1}:`, {
+                                        id: doc.id,
+                                        status: data.status,
+                                        complaintDate: data.complaintDate,
+                                        customerName: data.customerName,
+                                        brand: data.brand,
+                                        category: data.category,
+                                        agent: data.agentId,
+                                        phoneNumber: data.phoneNumber
+                                    });
+                                });
+                                console.log('💡 TIP: Closed complaints exist but other filters might be excluding them');
+                            } else {
+                                console.log('❌ No closed complaints found in database at all');
+                            }
+                        } catch (diagError) {
+                            console.error('Diagnostic query error:', diagError);
+                        }
+                    }
+                    
                     hasMore = false;
                     document.getElementById('noMore').style.display = 'block';
+                    
+                    // Clear table if reset
+                    if (reset) {
+                        document.getElementById('complaintTable').innerHTML = '';
+                        currentRowNumber = 0;
+                    }
                     return;
                 }
 
@@ -1199,9 +1399,11 @@
                 
                 if (reset) {
                     tbody.innerHTML = '';
+                    currentRowNumber = 0; // Reset row number on new search/refresh
                 }
 
                 filteredDocs.forEach(doc => {
+                    currentRowNumber++; // Increment for each row
                     const complaint = doc.data();
                     
                     // Format closed date for display
@@ -1210,8 +1412,12 @@
                     // Get agent name from the global map
                     const agentName = agentNamesMap[complaint.agentId] || 'N/A';
                     
+                    // Extract time from createdAt
+                    const complaintTime = formatTimeFromCreatedAt(complaint.createdAt);
+                    
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td style="text-align: center; font-weight: bold; color: #666;">${currentRowNumber}</td>
                         <td>${complaint.customerName || ''}</td>
                         <td>${complaint.phoneNumber || ''}</td>
                         <td>${complaint.dealer || ''}</td>
@@ -1220,17 +1426,29 @@
                         <td>${agentName}</td>
                         <td><span class="priority-badge priority-${complaint.priority?.toLowerCase() || 'low'}">${complaint.priority || 'Low'}</span></td>
                         <td><span class="status-badge status-${complaint.status?.toLowerCase() || 'open'}">${complaint.status || 'Open'}</span></td>
-                        <td>${complaint.complaintDate || ''}</td>
+                        <td>
+                            <div class="date-time-cell">
+                                <div>${complaint.complaintDate || ''}</div>
+                                ${complaintTime ? `<span class="time-badge">🕐 ${complaintTime}</span>` : ''}
+                            </div>
+                        </td>
                         <td>${closedDateDisplay}</td>
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
-                            <!-- <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button> -->
+                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete">🗑️</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
                 });
+                
+                console.log('✓ Loaded', filteredDocs.length, 'complaints into table');
+                console.log('Current row number:', currentRowNumber);
+                console.log('=== loadComplaints COMPLETED ===');
             } catch (error) {
+                console.error('=== ERROR in loadComplaints ===');
                 console.error('Error loading complaints:', error);
+                console.error('Error details:', error.message);
+                console.error('Stack:', error.stack);
             } finally {
                 isLoading = false;
                 document.getElementById('loading').style.display = 'none';
@@ -1702,12 +1920,12 @@ ${complaintData.companyCode || 'N/A'}
                 };
 
                 console.log('Sending SMS request via PHP proxy...');
-                console.log('Request URL: https://paezr.com/complaint-sms/pana/sendsms.php');
+                console.log('Request URL: https://paezr.com/complaint-sms/sendsms.php');
                 console.log('Request Data:', requestData);
 
                 // Send SMS using PHP proxy to avoid CORS issues
                 // PATH: https://paezr.com/complaint-sms/pana/sendsms.php (hosted online)
-                const response = await fetch("https://paezr.com/complaint-sms/pana/sendsms.php", {
+                const response = await fetch("https://paezr.com/complaint-sms/sendsms.php", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -2020,6 +2238,12 @@ ${complaintData.companyCode || 'N/A'}
             const companyCode = localStorage.getItem('companyCode');
             const userId = localStorage.getItem('userId');
             const editId = this.dataset.editId;
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Disable submit button to prevent multiple submissions
+            submitBtn.disabled = true;
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.textContent = editId ? 'Updating...' : 'Submitting...';
             
             console.log('Form Mode:', editId ? 'EDITING EXISTING COMPLAINT' : 'CREATING NEW COMPLAINT');
             console.log('Edit ID:', editId || 'None (new complaint)');
@@ -2047,6 +2271,9 @@ ${complaintData.companyCode || 'N/A'}
                 
                 if (missingFields.length > 0) {
                     showNotification(`Cannot generate Job Number. Missing: ${missingFields.join(', ')}`, 'error');
+                    // Re-enable submit button
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
                     return;
                 }
             }
@@ -2102,6 +2329,28 @@ ${complaintData.companyCode || 'N/A'}
                     // Send Telegram notification for update
                     await sendTelegramNotification(complaintData, true);
                 } else {
+                    // Check if complaint with same job number already exists (for new complaints only)
+                    console.log('=== CHECKING FOR DUPLICATE COMPLAINT NUMBER ===');
+                    const duplicateCheck = await db.collection('complaints')
+                        .doc('cmplts')
+                        .collection(companyCode)
+                        .doc('complaints')
+                        .collection('complaints-coll')
+                        .where('jobNumber', '==', jobNumber)
+                        .where('companyCode', '==', companyCode)
+                        .get();
+                    
+                    if (!duplicateCheck.empty) {
+                        console.warn('✗ DUPLICATE COMPLAINT NUMBER DETECTED:', jobNumber);
+                        showNotification(`Complaint number ${jobNumber} already exists! Please refresh the form.`, 'error');
+                        // Re-enable submit button
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalBtnText;
+                        return;
+                    }
+                    
+                    console.log('✓ No duplicate found. Proceeding with complaint creation.');
+                    
                     // Create new complaint
                     complaintData.createdBy = userId;
                     complaintData.createdAt = new Date();
@@ -2144,13 +2393,20 @@ ${complaintData.companyCode || 'N/A'}
                     }
                 }
 
+                // Reset form and re-enable button after successful submission
                 resetForm();
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Complaint';
+                
                 if (editId) {
                     loadComplaints(true); // Refresh the list if editing
                 }
             } catch (error) {
                 console.error('Error submitting complaint:', error);
                 showNotification('Error submitting complaint. Please try again.', 'error');
+                // Re-enable submit button on error
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
             }
         });
     </script>

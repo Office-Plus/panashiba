@@ -1,6 +1,6 @@
 // Version Configuration - Prevent multiple declarations
 if (typeof window.APP_VERSION === 'undefined') {
-    window.APP_VERSION = '1.0.15';
+    window.APP_VERSION = '1.0.17';
     window.VERSION_TIMESTAMP = Date.now();
 }
 
