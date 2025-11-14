@@ -73,7 +73,7 @@
         }
 
         .stat-value {
-            font-size: 24px;
+            font-size: 36px;
             font-weight: bold;
             color: #2196F3;
         }
@@ -234,8 +234,8 @@
             cursor: not-allowed;
         }
         
-        .clear-cache-btn {
-            background-color: #9C27B0;
+        .day-report-btn {
+            background-color: #FF5722;
             color: white;
             border: none;
             border-radius: 5px;
@@ -248,12 +248,12 @@
             gap: 5px;
         }
         
-        .clear-cache-btn:hover {
-            background-color: #7B1FA2;
+        .day-report-btn:hover {
+            background-color: #E64A19;
         }
         
-        .clear-cache-btn:active {
-            background-color: #6A1B9A;
+        .day-report-btn:active {
+            background-color: #D84315;
         }
     </style>
 </head>
@@ -279,9 +279,9 @@
     <div class="header">
         <button class="menu-btn" onclick="toggleMenu()">☰</button>
         <div class="welcome-message" id="welcomeMessage"></div>
-        <button class="clear-cache-btn" id="clearCacheBtn" onclick="clearComplaintCache()">
-            <span>🗑️</span>
-            <span>Clear Cache</span>
+        <button class="day-report-btn" id="dayReportBtn" onclick="generateDayEndReport()">
+            <span>📄</span>
+            <span>Day End Report</span>
         </button>
         <button class="sync-btn" id="syncBtn" onclick="syncUserData()">
             <span>🔄</span>
@@ -295,33 +295,21 @@
     <div class="main-content">
         <div class="dashboard-grid">
             <div class="card">
-                <h2>📂 Total Open Complaints</h2>
+                <h2>🆕 Today's Open Complaints</h2>
                 <div class="card-content">
-                    <div class="stat-value" id="totalOpenComplaints">
+                    <div class="stat-value" id="todayOpenComplaints">
                         <span style="font-size: 16px; color: #666;">Loading...</span>
                     </div>
-                    <div class="stat-label">All open complaints till date</div>
-                    <div class="activation-info" style="font-size: 12px; color: #999;">
-                        <div>Cache: <span id="cacheInfo">Initializing...</span></div>
-                    </div>
+                    <div class="stat-label" id="todayOpenLabel">Opened today</div>
                 </div>
             </div>
             <div class="card">
-                <h2>✅ Total Closed Complaints</h2>
+                <h2>✅ Today's Closed Complaints</h2>
                 <div class="card-content">
-                    <div class="stat-value" id="totalClosedComplaints">
+                    <div class="stat-value" id="todayClosedComplaints">
                         <span style="font-size: 16px; color: #666;">Loading...</span>
                     </div>
-                    <div class="stat-label">All closed complaints till date</div>
-                </div>
-            </div>
-            <div class="card">
-                <h2>🆕 Today's New Complaints</h2>
-                <div class="card-content">
-                    <div class="stat-value" id="todayComplaints">
-                        <span style="font-size: 16px; color: #666;">Loading...</span>
-                    </div>
-                    <div class="stat-label" id="todayLabel">Today's date</div>
+                    <div class="stat-label" id="todayClosedLabel">Closed today</div>
                 </div>
             </div>
             <div class="card">
@@ -352,6 +340,10 @@
     
     <!-- Add Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Add jsPDF and autoTable for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     
     <script src="menu.js"></script>
     <script>
@@ -534,7 +526,7 @@
             }
         }
         
-        // Smart caching function for complaint counts
+        // Get today's complaint counts (no caching)
         async function getComplaintCounts() {
             console.log('=== getComplaintCounts STARTED ===');
             try {
@@ -543,54 +535,22 @@
                 
                 if (!companyCode) {
                     console.error('Company code not found in localStorage');
-                    document.getElementById('totalOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
-                    document.getElementById('totalClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
-                    document.getElementById('todayComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
-                    document.getElementById('cacheInfo').textContent = 'Company code missing';
+                    document.getElementById('todayOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
+                    document.getElementById('todayClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">No Company Code</span>';
                     return;
                 }
-
-                // Display the Firestore path in console for debugging
-                const basePath = `complaints/cmplts/${companyCode}/complaints/complaints-coll`;
-                console.log('📂 Base Firestore Path:', basePath);
-                console.log('📂 Open Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open')`);
-                console.log('📂 Closed Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Closed')`);
-                console.log('📂 Today Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open') → where(complaintDate==today)`);
 
                 // Get today's date in YYYY-MM-DD format
                 const today = new Date();
                 const todayStr = today.toISOString().split('T')[0];
-                
-                // Get yesterday's date
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-                // Get cache from localStorage
-                const cacheKey = `complaintCache_${companyCode}`;
-                let cache = localStorage.getItem(cacheKey);
-                let cacheData = cache ? JSON.parse(cache) : null;
+                // Display the Firestore path in console for debugging
+                const basePath = `complaints/cmplts/${companyCode}/complaints/complaints-coll`;
+                console.log('📂 Base Firestore Path:', basePath);
+                console.log('📂 Today Open Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open') → where(complaintDate=='${todayStr}')`);
+                console.log('📂 Today Closed Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Closed') → where(complaintDate=='${todayStr}')`);
 
-                let historicalOpenCount = 0;
-                let historicalClosedCount = 0;
-                let needsFullQuery = false;
-
-                // Check if cache exists and is valid (last query was yesterday)
-                if (cacheData && cacheData.lastQueryDate === yesterdayStr) {
-                    console.log('✓ Using cached historical data from yesterday');
-                    historicalOpenCount = cacheData.openCount || 0;
-                    historicalClosedCount = cacheData.closedCount || 0;
-                    document.getElementById('cacheInfo').textContent = `Last cached: ${yesterdayStr}`;
-                } else {
-                    console.log('⚠ Cache invalid or missing, querying historical data...');
-                    needsFullQuery = true;
-                    document.getElementById('cacheInfo').textContent = 'Building cache...';
-                }
-
-                // Query today's complaints (always fresh)
-                console.log('📊 Querying today\'s complaints...');
-                document.getElementById('cacheInfo').textContent = 'Loading today\'s data...';
-                
+                // Query today's open complaints
                 const todayOpenSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
@@ -601,6 +561,7 @@
                     .where('complaintDate', '==', todayStr)
                     .get();
 
+                // Query today's closed complaints
                 const todayClosedSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
@@ -616,79 +577,20 @@
                 
                 console.log(`✓ Today's Open: ${todayOpenCount}, Today's Closed: ${todayClosedCount}`);
 
-                // If we need to query historical data (cache invalid/missing)
-                if (needsFullQuery) {
-                    console.log('📊 Querying historical data (up to yesterday)...');
-                    
-                    // Query all open complaints up to yesterday
-                    const historicalOpenSnapshot = await db.collection('complaints')
-                        .doc('cmplts')
-                        .collection(companyCode)
-                        .doc('complaints')
-                        .collection('complaints-coll')
-                        .where('companyCode', '==', companyCode)
-                        .where('status', '==', 'Open')
-                        .where('complaintDate', '<=', yesterdayStr)
-                        .get();
-
-                    // Query all closed complaints up to yesterday
-                    const historicalClosedSnapshot = await db.collection('complaints')
-                        .doc('cmplts')
-                        .collection(companyCode)
-                        .doc('complaints')
-                        .collection('complaints-coll')
-                        .where('companyCode', '==', companyCode)
-                        .where('status', '==', 'Closed')
-                        .where('complaintDate', '<=', yesterdayStr)
-                        .get();
-
-                    historicalOpenCount = historicalOpenSnapshot.size;
-                    historicalClosedCount = historicalClosedSnapshot.size;
-
-                    console.log(`✓ Historical Open: ${historicalOpenCount}, Historical Closed: ${historicalClosedCount}`);
-
-                    // Save to cache
-                    const newCache = {
-                        lastQueryDate: yesterdayStr,
-                        openCount: historicalOpenCount,
-                        closedCount: historicalClosedCount,
-                        cachedAt: new Date().toISOString()
-                    };
-                    localStorage.setItem(cacheKey, JSON.stringify(newCache));
-                    console.log('✓ Cache saved successfully');
-                    document.getElementById('cacheInfo').textContent = `Cached on: ${yesterdayStr}`;
-                }
-
-                // Calculate totals
-                const totalOpen = historicalOpenCount + todayOpenCount;
-                const totalClosed = historicalClosedCount + todayClosedCount;
-
-                console.log(`📈 TOTALS - Open: ${totalOpen}, Closed: ${totalClosed}`);
-
                 // Update UI
-                document.getElementById('totalOpenComplaints').innerHTML = `<span style="color: #2196F3;">${totalOpen}</span>`;
-                document.getElementById('totalClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${totalClosed}</span>`;
-                document.getElementById('todayComplaints').innerHTML = `<span style="color: #FF9800;">${todayOpenCount}</span>`;
-                document.getElementById('todayLabel').textContent = `Open complaints on ${todayStr}`;
+                document.getElementById('todayOpenComplaints').innerHTML = `<span style="color: #2196F3;">${todayOpenCount}</span>`;
+                document.getElementById('todayClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${todayClosedCount}</span>`;
+                document.getElementById('todayOpenLabel').textContent = `Opened on ${todayStr}`;
+                document.getElementById('todayClosedLabel').textContent = `Closed on ${todayStr}`;
                 
-                // Log results to console
-                console.log('📊 RESULTS BREAKDOWN:');
-                console.log(`  - Open Total: ${totalOpen} (${historicalOpenCount} cached + ${todayOpenCount} today)`);
-                console.log(`  - Closed Total: ${totalClosed} (${historicalClosedCount} cached + ${todayClosedCount} today)`);
-                console.log(`  - Today's Open: ${todayOpenCount}`);
-
-                // Render the chart with the data
-                renderComplaintChart(totalOpen, totalClosed);
+                // Render the chart with today's data
+                renderComplaintChart(todayOpenCount, todayClosedCount);
 
             } catch (error) {
                 console.error('=== ERROR in getComplaintCounts ===');
                 console.error('Error details:', error);
-                console.error('Error message:', error.message);
-                console.error('Error stack:', error.stack);
-                document.getElementById('totalOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error: ' + error.message + '</span>';
-                document.getElementById('totalClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error</span>';
-                document.getElementById('todayComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error</span>';
-                document.getElementById('cacheInfo').textContent = 'Error: ' + error.message;
+                document.getElementById('todayOpenComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error: ' + error.message + '</span>';
+                document.getElementById('todayClosedComplaints').innerHTML = '<span style="color: #f44336; font-size: 14px;">Error</span>';
             }
             console.log('=== getComplaintCounts ENDED ===');
         }
@@ -802,7 +704,7 @@
             complaintChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Open Complaints', 'Closed Complaints'],
+                    labels: ['Today\'s Open', 'Today\'s Closed'],
                     datasets: [{
                         label: 'Complaint Status',
                         data: [openCount, closedCount],
@@ -832,7 +734,7 @@
                         },
                         title: {
                             display: true,
-                            text: `Total Complaints: ${openCount + closedCount}`,
+                            text: `Today's Total: ${openCount + closedCount} Complaints`,
                             font: {
                                 size: 16,
                                 weight: 'bold'
@@ -864,22 +766,201 @@
             console.log('✓ Chart rendered successfully');
         }
 
-        // Function to clear complaint cache and refresh
-        window.clearComplaintCache = async function() {
-            const companyCode = localStorage.getItem('companyCode');
-            if (!companyCode) {
-                alert('Company code not found. Please login again.');
-                return;
+        // Function to generate Day End Report PDF
+        window.generateDayEndReport = async function() {
+            const dayReportBtn = document.getElementById('dayReportBtn');
+            const originalText = dayReportBtn.innerHTML;
+            
+            try {
+                // Show loading state
+                dayReportBtn.innerHTML = '<span>⏳</span><span>Generating...</span>';
+                dayReportBtn.disabled = true;
+                
+                const companyCode = localStorage.getItem('companyCode');
+                const userEmail = localStorage.getItem('userEmail');
+                
+                if (!companyCode) {
+                    alert('Company code not found. Please login again.');
+                    return;
+                }
+
+                // Get today's date
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                const printTime = today.toLocaleString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+
+                console.log('📊 Generating Day End Report...');
+                
+                // Query today's open complaints
+                const todayOpenSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Open')
+                    .where('complaintDate', '==', todayStr)
+                    .get();
+
+                // Query today's closed complaints
+                const todayClosedSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Closed')
+                    .where('complaintDate', '==', todayStr)
+                    .get();
+
+                // Query total open complaints (all time)
+                const totalOpenSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Open')
+                    .get();
+
+                const todayOpenCount = todayOpenSnapshot.size;
+                const todayClosedCount = todayClosedSnapshot.size;
+                const totalOpenTillNow = totalOpenSnapshot.size;
+
+                // Get month-wise summary for current year
+                const currentYear = today.getFullYear();
+                const monthWiseData = {};
+                
+                // Initialize months
+                for (let i = 0; i < 12; i++) {
+                    const monthName = new Date(currentYear, i, 1).toLocaleString('default', { month: 'long' });
+                    monthWiseData[monthName] = { open: 0, closed: 0 };
+                }
+
+                // Get all complaints for the current year
+                const yearStartStr = `${currentYear}-01-01`;
+                const yearEndStr = `${currentYear}-12-31`;
+                
+                const yearComplaintsSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('complaintDate', '>=', yearStartStr)
+                    .where('complaintDate', '<=', yearEndStr)
+                    .get();
+
+                // Process month-wise data
+                yearComplaintsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = new Date(data.complaintDate + 'T00:00:00');
+                    const monthName = date.toLocaleString('default', { month: 'long' });
+                    
+                    if (data.status === 'Open') {
+                        monthWiseData[monthName].open++;
+                    } else if (data.status === 'Closed') {
+                        monthWiseData[monthName].closed++;
+                    }
+                });
+
+                // Create PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Add title
+                doc.setFontSize(18);
+                doc.setTextColor(33, 150, 243);
+                doc.text('Day End Report', 105, 20, { align: 'center' });
+
+                // Add company code
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Company Code: ${companyCode}`, 20, 35);
+
+                // Add date and time
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Report Date: ${todayStr}`, 20, 45);
+                doc.text(`Generated By: ${userEmail}`, 20, 52);
+                doc.text(`Generated At: ${printTime}`, 20, 59);
+
+                // Today's Summary Table
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 0);
+                doc.text("Today's Summary", 20, 75);
+
+                doc.autoTable({
+                    startY: 80,
+                    head: [['Metric', 'Count']],
+                    body: [
+                        ['Today\'s Open Complaints', todayOpenCount.toString()],
+                        ['Today\'s Closed Complaints', todayClosedCount.toString()],
+                        ['Total Open Complaints (Till Now)', totalOpenTillNow.toString()]
+                    ],
+                    theme: 'striped',
+                    headStyles: { fillColor: [33, 150, 243] },
+                    margin: { left: 20, right: 20 }
+                });
+
+                // Month-wise Summary Table
+                const finalY = doc.lastAutoTable.finalY + 15;
+                doc.setFontSize(14);
+                doc.text(`Month-wise Summary (${currentYear})`, 20, finalY);
+
+                const monthWiseTableData = Object.entries(monthWiseData).map(([month, counts]) => [
+                    month,
+                    counts.open.toString(),
+                    counts.closed.toString(),
+                    (counts.open + counts.closed).toString()
+                ]);
+
+                doc.autoTable({
+                    startY: finalY + 5,
+                    head: [['Month', 'Open', 'Closed', 'Total']],
+                    body: monthWiseTableData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [76, 175, 80] },
+                    margin: { left: 20, right: 20 }
+                });
+
+                // Add footer with generation info
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(
+                        `Page ${i} of ${pageCount} | Generated by ${userEmail} on ${printTime}`,
+                        105,
+                        290,
+                        { align: 'center' }
+                    );
+                }
+
+                // Save the PDF
+                const fileName = `Day_End_Report_${todayStr}_${Date.now()}.pdf`;
+                doc.save(fileName);
+
+                console.log('✓ PDF generated successfully');
+                
+                // Reset button
+                dayReportBtn.innerHTML = originalText;
+                dayReportBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating report. Please try again.');
+                dayReportBtn.innerHTML = originalText;
+                dayReportBtn.disabled = false;
             }
-            
-            const cacheKey = `complaintCache_${companyCode}`;
-            localStorage.removeItem(cacheKey);
-            
-            console.log('🗑️ Cache cleared, refreshing data...');
-            alert('Cache cleared! Refreshing complaint data and chart...');
-            
-            // Reload complaint counts (will also re-render the chart)
-            await getComplaintCounts();
         }
 
         // Toggle menu function
