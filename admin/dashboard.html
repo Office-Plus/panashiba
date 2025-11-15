@@ -865,11 +865,30 @@
                     head: [['Metric', 'Count']],
                     body: [
                         ['Today\'s Open Complaints', todayOpenCount.toString()],
-                        ['Today\'s Closed Complaints', todayClosedCount.toString()],
-                        ['Total Open Complaints (Till Now)', totalOpenTillNow.toString()]
+                        ['Today\'s Closed Complaints', todayClosedCount.toString()]
                     ],
                     theme: 'striped',
                     headStyles: { fillColor: [33, 150, 243] },
+                    margin: { left: 20, right: 20 }
+                });
+
+                // Total Open Complaints Section
+                const firstTableY = doc.lastAutoTable.finalY + 20;
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 0);
+                doc.text("Total Open Complaints (Till Now)", 20, firstTableY);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text("All open complaints up to now (regardless of date)", 20, firstTableY + 7);
+
+                doc.autoTable({
+                    startY: firstTableY + 12,
+                    head: [['Metric', 'Count']],
+                    body: [
+                        ['Total Open Complaints (Till Now)', totalOpenTillNow.toString()]
+                    ],
+                    theme: 'striped',
+                    headStyles: { fillColor: [76, 175, 80] },
                     margin: { left: 20, right: 20 }
                 });
 
@@ -878,7 +897,6 @@
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
                 doc.text('Note: This report shows today\'s activity and total open complaints.', 20, finalY);
-                doc.text('For monthly summaries, please use the monthly report feature.', 20, finalY + 7);
 
                 // Add footer with generation info
                 const pageCount = doc.internal.getNumberOfPages();
