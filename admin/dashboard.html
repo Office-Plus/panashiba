@@ -834,43 +834,6 @@
                 const todayClosedCount = todayClosedSnapshot.size;
                 const totalOpenTillNow = totalOpenSnapshot.size;
 
-                // Get month-wise summary for current year
-                const currentYear = today.getFullYear();
-                const monthWiseData = {};
-                
-                // Initialize months
-                for (let i = 0; i < 12; i++) {
-                    const monthName = new Date(currentYear, i, 1).toLocaleString('default', { month: 'long' });
-                    monthWiseData[monthName] = { open: 0, closed: 0 };
-                }
-
-                // Get all complaints for the current year
-                const yearStartStr = `${currentYear}-01-01`;
-                const yearEndStr = `${currentYear}-12-31`;
-                
-                const yearComplaintsSnapshot = await db.collection('complaints')
-                    .doc('cmplts')
-                    .collection(companyCode)
-                    .doc('complaints')
-                    .collection('complaints-coll')
-                    .where('companyCode', '==', companyCode)
-                    .where('complaintDate', '>=', yearStartStr)
-                    .where('complaintDate', '<=', yearEndStr)
-                    .get();
-
-                // Process month-wise data
-                yearComplaintsSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const date = new Date(data.complaintDate + 'T00:00:00');
-                    const monthName = date.toLocaleString('default', { month: 'long' });
-                    
-                    if (data.status === 'Open') {
-                        monthWiseData[monthName].open++;
-                    } else if (data.status === 'Closed') {
-                        monthWiseData[monthName].closed++;
-                    }
-                });
-
                 // Create PDF
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
@@ -910,26 +873,12 @@
                     margin: { left: 20, right: 20 }
                 });
 
-                // Month-wise Summary Table
+                // Add summary note
                 const finalY = doc.lastAutoTable.finalY + 15;
-                doc.setFontSize(14);
-                doc.text(`Month-wise Summary (${currentYear})`, 20, finalY);
-
-                const monthWiseTableData = Object.entries(monthWiseData).map(([month, counts]) => [
-                    month,
-                    counts.open.toString(),
-                    counts.closed.toString(),
-                    (counts.open + counts.closed).toString()
-                ]);
-
-                doc.autoTable({
-                    startY: finalY + 5,
-                    head: [['Month', 'Open', 'Closed', 'Total']],
-                    body: monthWiseTableData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [76, 175, 80] },
-                    margin: { left: 20, right: 20 }
-                });
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Note: This report shows today\'s activity and total open complaints.', 20, finalY);
+                doc.text('For monthly summaries, please use the monthly report feature.', 20, finalY + 7);
 
                 // Add footer with generation info
                 const pageCount = doc.internal.getNumberOfPages();
