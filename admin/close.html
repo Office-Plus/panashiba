@@ -40,7 +40,7 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 70px auto 0;
             padding: 20px;
         }
@@ -50,7 +50,6 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
         }
 
         .form-group {
@@ -65,7 +64,7 @@
             font-size: 16px;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input {
             width: 100%;
             padding: 15px;
             border: 1px solid #ddd;
@@ -75,27 +74,10 @@
             transition: border-color 0.3s ease;
         }
 
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        .form-group input:focus {
             outline: none;
             border-color: #2196F3;
             box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 120px;
-        }
-
-        .form-group input[readonly] {
-            background-color: #f9f9f9;
-            color: #666;
-            cursor: not-allowed;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
         }
 
         .btn {
@@ -106,8 +88,8 @@
             font-size: 16px;
             font-weight: bold;
             transition: all 0.3s ease;
-            margin-right: 15px;
-            min-width: 120px;
+            width: 100%;
+            min-height: 50px;
         }
 
         .btn-primary {
@@ -117,28 +99,14 @@
 
         .btn-primary:hover {
             background-color: #1976D2;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background-color: #545b62;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .section-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-            margin: 0 0 25px 0;
-            padding-bottom: 10px;
-            border-bottom: 3px solid #2196F3;
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
         .notification {
@@ -181,31 +149,6 @@
             color: #f44336;
         }
 
-        .form-actions {
-            margin-top: 40px;
-            padding-top: 25px;
-            border-top: 2px solid #eee;
-            text-align: center;
-        }
-
-        .status-field {
-            background-color: #e8f5e8 !important;
-            color: #2e7d32 !important;
-            font-weight: bold;
-            border-color: #4caf50 !important;
-        }
-
-        .company-code-field {
-            background-color: #fff3cd !important;
-            border-color: #ffeaa7 !important;
-        }
-
-        .company-code-field:focus {
-            background-color: #fff3cd !important;
-            border-color: #2196F3 !important;
-            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-        }
-
         /* Mobile responsive adjustments */
         @media (max-width: 768px) {
             .container {
@@ -217,27 +160,14 @@
                 padding: 20px;
             }
 
-            .form-group {
-                margin-bottom: 20px;
-            }
-
-            .form-group input, .form-group select, .form-group textarea {
+            .form-group input {
                 padding: 12px;
                 font-size: 16px; /* Prevents zoom on iOS */
             }
 
             .btn {
-                padding: 12px 20px;
+                padding: 14px 20px;
                 font-size: 16px;
-                margin-bottom: 10px;
-                width: 100%;
-                margin-right: 0;
-            }
-
-            .form-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
             }
 
             .notification {
@@ -246,80 +176,27 @@
                 max-width: none;
             }
         }
-
-        /* Loading state */
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Success animation */
-        @keyframes successPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        .success-animation {
-            animation: successPulse 0.3s ease-in-out;
-        }
-
-        .version-info {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-            color: #666;
-            font-size: 14px;
-        }
     </style>
 </head>
 <body>
+    <div id="menuContainer"></div>
+
     <div class="header">
-        <button class="menu-btn" onclick="goBack()">←</button>
-        <div class="welcome-message">Close Complaint</div>
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="welcome-message" id="welcomeMessage"></div>
     </div>
 
     <div class="container">
         <div class="form-container">
-            <div class="section-title">Close Complaint</div>
+            <h1 style="margin-top: 0; color: #333; font-size: 24px;">Close Complaint</h1>
             
             <form id="closeForm">
                 <div class="form-group">
-                    <label for="companyCode">Company Code <span class="required">*</span></label>
-                    <input type="text" id="companyCode" required placeholder="Enter company code">
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="itemSerialNumber">Item Serial Number <span class="required">*</span></label>
-                        <input type="text" id="itemSerialNumber" required placeholder="Enter item serial number">
-                    </div>
-                    <div class="form-group">
-                        <label for="jobNumber">Job Number <span class="required">*</span></label>
-                        <input type="text" id="jobNumber" required placeholder="Enter job number">
-                    </div>
+                    <label for="jobNumber">Job Number <span class="required">*</span></label>
+                    <input type="text" id="jobNumber" required placeholder="Enter job number" autocomplete="off">
                 </div>
 
-                <div class="form-group">
-                    <label for="reason">Reason <span class="required">*</span></label>
-                    <textarea id="reason" required placeholder="Enter reason for closing the complaint..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="status">Status</label>
-                    <input type="text" id="status" value="Closed" readonly class="status-field">
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" id="updateBtn">Update</button>
-                    <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
-                </div>
-                
-                <div class="version-info">
-                    <span>Version: <span id="appVersion">Loading...</span></span>
-                </div>
+                <button type="submit" class="btn btn-primary" id="closeBtn">Close Complaint</button>
             </form>
         </div>
     </div>
@@ -334,9 +211,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
     
-    <!-- Version Configuration -->
-    <script src="version-config.js"></script>
-    
+    <!-- Version Management -->
+    <script src="menu.js"></script>
     <script>
         // Firebase configuration
         const firebaseConfig = {
@@ -352,6 +228,17 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Load the menu with cache busting
+        function loadMenu() {
+            const cacheBuster = window.getCacheBuster ? window.getCacheBuster() : '?v=1.0.3&t=' + Date.now();
+            fetch('menu.html' + cacheBuster)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('menuContainer').innerHTML = html;
+                });
+        }
 
         // Show notification function
         function showNotification(message, type = 'success') {
@@ -370,81 +257,114 @@
             }, 3000);
         }
 
-        // Go back function
-        function goBack() {
-            window.history.back();
-        }
-
-        // Reset form function
-        function resetForm() {
-            document.getElementById('closeForm').reset();
-            document.getElementById('status').value = 'Closed';
-            loadCompanyCode(); // Reload company code from localStorage
-        }
-
-        // Load company code from localStorage
-        function loadCompanyCode() {
-            const companyCodeField = document.getElementById('companyCode');
-            const storedCompanyCode = localStorage.getItem('companyCode');
-            
-            if (storedCompanyCode && storedCompanyCode.trim() !== '') {
-                companyCodeField.value = storedCompanyCode;
-                companyCodeField.classList.remove('company-code-field');
-            } else {
-                companyCodeField.value = '';
-                companyCodeField.classList.add('company-code-field');
-                companyCodeField.focus(); // Set cursor to this field
+        // Toggle menu function (fallback)
+        window.toggleMenu = function() {
+            const menu = document.querySelector('.side-menu');
+            if (menu) {
+                menu.classList.toggle('active');
             }
-        }
+        };
 
-        // Save company code to localStorage when user leaves the field
-        function saveCompanyCode() {
-            const companyCodeField = document.getElementById('companyCode');
-            let companyCode = companyCodeField.value.trim();
+        // Load data when the page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in
+            const userEmail = localStorage.getItem('userEmail');
+            const userId = localStorage.getItem('userId');
             
-            if (companyCode) {
-                // Convert to uppercase and remove spaces as in settings
-                companyCode = companyCode.toUpperCase().replace(/\s+/g, '');
-                companyCodeField.value = companyCode;
-                localStorage.setItem('companyCode', companyCode);
-                companyCodeField.classList.remove('company-code-field');
-            } else {
-                localStorage.removeItem('companyCode');
-                companyCodeField.classList.add('company-code-field');
+            console.log('=== PAGE LOAD - Checking credentials ===');
+            console.log('User Email:', userEmail);
+            console.log('User ID:', userId);
+            console.log('Company Code: PANA25 (hardcoded)');
+            
+            if (!userEmail || !userId) {
+                console.log('❌ Missing credentials, redirecting to login');
+                window.location.href = 'login.html';
+                return;
             }
-        }
+            
+            // Load menu first
+            loadMenu();
+            
+            // Set welcome message
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}`;
+            
+            // Focus on job number input for better mobile UX
+            document.getElementById('jobNumber').focus();
+            
+            // Check for updates
+            if (window.VersionManager) {
+                VersionManager.checkForUpdates();
+            }
+        });
 
-        // Find complaint by job number only
-        async function findComplaint(jobNumber) {
+        // Search for complaint by job number and update status
+        async function closeComplaint(jobNumber) {
             try {
-                // Get company code from form field
-                const companyCode = document.getElementById('companyCode').value.trim() || 'default';
-                
-                const complaintsRef = db.collection('complaints')
+                // Hardcoded company code
+                const companyCode = 'PANA25';
+
+                console.log('=== SEARCHING FOR COMPLAINT ===');
+                console.log('Job Number:', jobNumber);
+                console.log('Company Code:', companyCode);
+
+                // Search for the complaint by job number (same as new-complaint.html)
+                const snapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
-                    .collection('complaints-coll');
-                
-                // Query by jobNumber only
-                const querySnapshot = await complaintsRef
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
                     .where('jobNumber', '==', jobNumber)
-                    .where('status', '==', 'Open')
                     .get();
 
-                if (querySnapshot.empty) {
-                    return null;
+                if (snapshot.empty) {
+                    console.log('❌ No complaint found with job number:', jobNumber);
+                    showNotification('Complaint not found with job number: ' + jobNumber, 'error');
+                    return { success: false, error: 'Complaint not found' };
                 }
 
-                // Return the first matching complaint
-                const doc = querySnapshot.docs[0];
-                return {
-                    id: doc.id,
-                    data: doc.data()
-                };
+                const doc = snapshot.docs[0];
+                const complaint = doc.data();
+                
+                console.log('✓ Complaint found:', doc.id);
+                console.log('Current status:', complaint.status);
+
+                // Check if already closed
+                if (complaint.status === 'Closed') {
+                    showNotification('This complaint is already closed.', 'error');
+                    return { success: false, error: 'Already closed' };
+                }
+
+                // Update status to "Closed" (exact same capitalization as new-complaint.html uses)
+                // From new-complaint.html line 639-643: Status values are "Open", "Closed", "Cancelled"
+                // From new-complaint.html line 2320-2321: When closing, sets status: 'Closed' and closedAt: new Date()
+                console.log('=== UPDATING COMPLAINT STATUS ===');
+                console.log('Setting status to: Closed');
+                console.log('Adding closedAt timestamp');
+
+                await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .doc(doc.id)
+                    .update({
+                        status: 'Closed',  // Exact same value as used in new-complaint.html
+                        closedAt: new Date(),
+                        updatedAt: new Date()
+                    });
+
+                console.log('✓ Complaint successfully closed');
+                showNotification('Complaint successfully closed', 'success');
+                return { success: true, docId: doc.id };
+
             } catch (error) {
-                console.error('Error finding complaint:', error);
-                throw error;
+                console.error('=== ERROR closing complaint ===');
+                console.error('Error:', error);
+                console.error('Error details:', error.message);
+                console.error('Stack:', error.stack);
+                showNotification('Error closing complaint. Please try again.', 'error');
+                return { success: false, error: error.message };
             }
         }
 
@@ -452,95 +372,49 @@
         document.getElementById('closeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const updateBtn = document.getElementById('updateBtn');
-            updateBtn.disabled = true;
-            updateBtn.textContent = 'Updating...';
+            const jobNumber = document.getElementById('jobNumber').value.trim();
+            const closeBtn = document.getElementById('closeBtn');
+            
+            if (!jobNumber) {
+                showNotification('Please enter a job number.', 'error');
+                return;
+            }
+            
+            // Disable button to prevent multiple submissions
+            closeBtn.disabled = true;
+            const originalBtnText = closeBtn.textContent;
+            closeBtn.textContent = 'Closing...';
+            
+            console.log('=== FORM SUBMISSION START ===');
+            console.log('Job Number:', jobNumber);
             
             try {
-                const companyCode = document.getElementById('companyCode').value.trim();
-                const itemSerialNumber = document.getElementById('itemSerialNumber').value.trim();
-                const jobNumber = document.getElementById('jobNumber').value.trim();
-                const reason = document.getElementById('reason').value.trim();
-
-                if (!companyCode || !itemSerialNumber || !jobNumber || !reason) {
-                    showNotification('Please fill in all required fields.', 'error');
-                    return;
-                }
-
-                // Find the complaint
-                const complaint = await findComplaint(jobNumber);
+                const result = await closeComplaint(jobNumber);
                 
-                if (!complaint) {
-                    showNotification('No open complaint found with the provided job number.', 'error');
-                    return;
+                if (result.success) {
+                    // Clear the form after successful close
+                    setTimeout(() => {
+                        document.getElementById('jobNumber').value = '';
+                        document.getElementById('jobNumber').focus();
+                    }, 1500);
                 }
-
-                // Update the complaint using the found complaint ID
-                await db.collection('complaints')
-                    .doc('cmplts')
-                    .collection(companyCode)
-                    .doc('complaints')
-                    .collection('complaints-coll')
-                    .doc(complaint.id)
-                    .update({
-                        itemSerialNumber: itemSerialNumber,
-                        status: 'Closed',
-                        reason: reason,
-                        closedAt: new Date(),
-                        updatedAt: new Date()
-                    });
-
-                // Show success message with complaint number
-                const complaintNumber = complaint.id;
-                showNotification(`Complaint closed successfully with complaint no. ${complaintNumber}`);
-                
-                // Add success animation to form
-                document.querySelector('.form-container').classList.add('success-animation');
-                setTimeout(() => {
-                    document.querySelector('.form-container').classList.remove('success-animation');
-                }, 300);
-
-                // Reset form after successful update
-                setTimeout(() => {
-                    resetForm();
-                }, 1000);
-
             } catch (error) {
-                console.error('Error closing complaint:', error);
-                showNotification('Error closing complaint. Please try again.', 'error');
+                console.error('Unexpected error:', error);
+                showNotification('Unexpected error occurred. Please try again.', 'error');
             } finally {
-                updateBtn.disabled = false;
-                updateBtn.textContent = 'Update';
+                // Re-enable button
+                closeBtn.disabled = false;
+                closeBtn.textContent = originalBtnText;
             }
         });
 
-        // Add some visual feedback for form interactions
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load company code on page load
-            loadCompanyCode();
-            
-            // Add event listener for company code field
-            const companyCodeField = document.getElementById('companyCode');
-            companyCodeField.addEventListener('blur', saveCompanyCode);
-            
-            // Display version number
-            const appVersionElement = document.getElementById('appVersion');
-            if (appVersionElement && window.APP_VERSION) {
-                appVersionElement.textContent = window.APP_VERSION;
+        // Allow Enter key to submit
+        document.getElementById('jobNumber').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('closeForm').dispatchEvent(new Event('submit'));
             }
-            
-            // Add focus effects
-            const inputs = document.querySelectorAll('input, textarea');
-            inputs.forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.parentElement.style.transform = 'translateY(-2px)';
-                });
-                
-                input.addEventListener('blur', function() {
-                    this.parentElement.style.transform = 'translateY(0)';
-                });
-            });
         });
     </script>
 </body>
-</html> 
+</html>
