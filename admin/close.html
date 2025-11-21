@@ -107,6 +107,7 @@
             opacity: 0.6;
             cursor: not-allowed;
             transform: none !important;
+            background-color: #9e9e9e !important;
         }
 
         .notification {
@@ -149,6 +150,144 @@
             color: #f44336;
         }
 
+        /* Version display */
+        .version-display {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Update Modal Styles */
+        .update-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .update-modal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .update-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .update-modal-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .update-modal h2 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .update-modal p {
+            margin: 0 0 25px 0;
+            color: #666;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .update-modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .update-modal-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .update-modal-btn-primary {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .update-modal-btn-primary:hover {
+            background-color: #1976D2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .update-modal-btn-secondary {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+
+        .update-modal-btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Mobile responsive for modal */
+        @media (max-width: 768px) {
+            .update-modal-content {
+                padding: 25px 20px;
+                margin: 20px;
+            }
+
+            .update-modal h2 {
+                font-size: 20px;
+            }
+
+            .update-modal p {
+                font-size: 14px;
+            }
+
+            .update-modal-buttons {
+                flex-direction: column;
+            }
+
+            .update-modal-btn {
+                width: 100%;
+            }
+        }
+
         /* Mobile responsive adjustments */
         @media (max-width: 768px) {
             .container {
@@ -179,11 +318,8 @@
     </style>
 </head>
 <body>
-    <div id="menuContainer"></div>
-
     <div class="header">
-        <button class="menu-btn" onclick="toggleMenu()">☰</button>
-        <div class="welcome-message" id="welcomeMessage"></div>
+        <div class="welcome-message">Close Complaint</div>
     </div>
 
     <div class="container">
@@ -195,9 +331,26 @@
                     <label for="jobNumber">Job Number <span class="required">*</span></label>
                     <input type="text" id="jobNumber" required placeholder="Enter job number" autocomplete="off">
                 </div>
-
+                
                 <button type="submit" class="btn btn-primary" id="closeBtn">Close Complaint</button>
             </form>
+            
+            <div class="version-display">
+                Version: <span id="appVersion">Loading...</span>
+                    </div>
+                    </div>
+                </div>
+
+    <!-- Update Modal -->
+    <div id="updateModal" class="update-modal">
+        <div class="update-modal-content">
+            <div class="update-modal-icon">🔄</div>
+            <h2>New Version Available!</h2>
+            <p>A new version (<span id="newVersionText"></span>) of the application is available. Please refresh to get the latest features and improvements.</p>
+            <div class="update-modal-buttons">
+                <button class="update-modal-btn update-modal-btn-primary" id="refreshBtn">Refresh Now</button>
+                <button class="update-modal-btn update-modal-btn-secondary" id="closeModalBtn">Later</button>
+                </div>
         </div>
     </div>
 
@@ -208,11 +361,11 @@
 
     <!-- Add Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
     
-    <!-- Version Management -->
-    <script src="menu.js"></script>
+    <!-- Version Configuration -->
+    <script src="version-config.js"></script>
+    
     <script>
         // Firebase configuration
         const firebaseConfig = {
@@ -228,17 +381,6 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const auth = firebase.auth();
-
-        // Load the menu with cache busting
-        function loadMenu() {
-            const cacheBuster = window.getCacheBuster ? window.getCacheBuster() : '?v=1.0.3&t=' + Date.now();
-            fetch('menu.html' + cacheBuster)
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('menuContainer').innerHTML = html;
-                });
-        }
 
         // Show notification function
         function showNotification(message, type = 'success') {
@@ -251,49 +393,202 @@
             // Show notification
             notification.classList.add('show');
             
-            // Hide after 3 seconds
+            // Hide after 5 seconds (longer for error messages with dates)
+            const hideDelay = type === 'error' ? 5000 : 3000;
             setTimeout(() => {
                 notification.classList.remove('show');
-            }, 3000);
+            }, hideDelay);
         }
 
-        // Toggle menu function (fallback)
-        window.toggleMenu = function() {
-            const menu = document.querySelector('.side-menu');
-            if (menu) {
-                menu.classList.toggle('active');
+        // Helper function to format closedAt date to readable string
+        function formatClosedDate(closedAt) {
+            if (!closedAt) return '';
+            
+            let date = null;
+            
+            // Handle different closedAt formats
+            if (closedAt.toDate && typeof closedAt.toDate === 'function') {
+                // If it's a Firestore Timestamp
+                date = closedAt.toDate();
+            } else if (closedAt instanceof Date) {
+                // If it's a Date object
+                date = closedAt;
+            } else if (closedAt.seconds) {
+                // If it's a Timestamp object with seconds property
+                date = new Date(closedAt.seconds * 1000);
+            } else if (typeof closedAt === 'string') {
+                // If it's a string, try to parse it
+                date = new Date(closedAt);
             }
-        };
+            
+            if (date && !isNaN(date.getTime())) {
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                  'July', 'August', 'September', 'October', 'November', 'December'];
+                const month = monthNames[date.getMonth()];
+                const day = date.getDate();
+                const year = date.getFullYear();
+                const hours = date.getHours();
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                const displayHours = hours % 12 || 12;
+                
+                return `${month} ${day}, ${year} at ${displayHours}:${minutes}:${seconds} ${ampm}`;
+            }
+            
+            return String(closedAt);
+        }
+
+        // Version Management Functions
+        function checkForNewVersion() {
+            // Wait a bit to ensure version-config.js is loaded
+            setTimeout(function() {
+                // Get current version from version-config.js
+                const currentVersion = window.APP_VERSION || '1.0.0';
+                
+                // Get last saved version from localStorage
+                const savedVersion = localStorage.getItem('closePageVersion') || '0.0.0';
+                
+                console.log('=== VERSION CHECK ===');
+                console.log('Current Version (from config):', currentVersion);
+                console.log('Saved Version (from localStorage):', savedVersion);
+                
+                // Display version number
+                const versionElement = document.getElementById('appVersion');
+                if (versionElement) {
+                    versionElement.textContent = currentVersion;
+                }
+                
+                // Compare versions (semantic versioning)
+                // Only show modal if:
+                // 1. Saved version exists (not first load)
+                // 2. Current version is newer than saved version
+                if (savedVersion !== '0.0.0' && savedVersion !== currentVersion && isNewerVersion(currentVersion, savedVersion)) {
+                    console.log('✓ New version detected!');
+                    showUpdateModal(currentVersion);
+                } else {
+                    console.log('✓ Already on latest version or first load');
+                }
+                
+                // Save current version to localStorage
+                localStorage.setItem('closePageVersion', currentVersion);
+            }, 100); // Small delay to ensure version-config.js is loaded
+        }
+
+        // Compare version strings (semantic versioning)
+        function isNewerVersion(newVersion, oldVersion) {
+            const newParts = newVersion.split('.').map(Number);
+            const oldParts = oldVersion.split('.').map(Number);
+            
+            for (let i = 0; i < Math.max(newParts.length, oldParts.length); i++) {
+                const newPart = newParts[i] || 0;
+                const oldPart = oldParts[i] || 0;
+                
+                if (newPart > oldPart) return true;
+                if (newPart < oldPart) return false;
+            }
+            
+            return false;
+        }
+
+        // Show update modal popup
+        function showUpdateModal(newVersion) {
+            const modal = document.getElementById('updateModal');
+            const versionText = document.getElementById('newVersionText');
+            
+            if (modal && versionText) {
+                versionText.textContent = newVersion;
+                modal.classList.add('show');
+            }
+        }
+
+        // Hide update modal
+        function hideUpdateModal() {
+            const modal = document.getElementById('updateModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
+        // Refresh/reload page
+        function refreshPage() {
+            // Clear cache
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            
+            // Reload page
+            window.location.reload(true);
+        }
+
+        // Function to toggle button state based on input value
+        function toggleCloseButton() {
+            const jobNumberInput = document.getElementById('jobNumber');
+            const closeBtn = document.getElementById('closeBtn');
+            
+            if (jobNumberInput && closeBtn) {
+                const hasValue = jobNumberInput.value.trim().length > 0;
+                closeBtn.disabled = !hasValue;
+            }
+        }
 
         // Load data when the page loads
         document.addEventListener('DOMContentLoaded', async function() {
-            // Check if user is logged in
-            const userEmail = localStorage.getItem('userEmail');
-            const userId = localStorage.getItem('userId');
-            
-            console.log('=== PAGE LOAD - Checking credentials ===');
-            console.log('User Email:', userEmail);
-            console.log('User ID:', userId);
+            console.log('=== PAGE LOAD ===');
             console.log('Company Code: PANA25 (hardcoded)');
             
-            if (!userEmail || !userId) {
-                console.log('❌ Missing credentials, redirecting to login');
-                window.location.href = 'login.html';
-                return;
+            // Initially disable the close button (field is empty)
+            const closeBtn = document.getElementById('closeBtn');
+            if (closeBtn) {
+                closeBtn.disabled = true;
             }
             
-            // Load menu first
-            loadMenu();
+            // Add event listener to job number input field
+            const jobNumberInput = document.getElementById('jobNumber');
+            if (jobNumberInput) {
+                // Enable/disable button based on input value
+                jobNumberInput.addEventListener('input', toggleCloseButton);
+                jobNumberInput.addEventListener('keyup', toggleCloseButton);
+                jobNumberInput.addEventListener('paste', function() {
+                    // Handle paste event with a slight delay
+                    setTimeout(toggleCloseButton, 10);
+                });
+                
+                // Focus on job number input for better mobile UX
+                jobNumberInput.focus();
+            }
             
-            // Set welcome message
-            document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}`;
+            // Check for new version
+            checkForNewVersion();
             
-            // Focus on job number input for better mobile UX
-            document.getElementById('jobNumber').focus();
+            // Update modal button handlers
+            const refreshBtn = document.getElementById('refreshBtn');
+            const closeModalBtn = document.getElementById('closeModalBtn');
             
-            // Check for updates
-            if (window.VersionManager) {
-                VersionManager.checkForUpdates();
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    refreshPage();
+                });
+            }
+            
+            if (closeModalBtn) {
+                closeModalBtn.addEventListener('click', function() {
+                    hideUpdateModal();
+                });
+            }
+            
+            // Close modal when clicking outside
+            const updateModal = document.getElementById('updateModal');
+            if (updateModal) {
+                updateModal.addEventListener('click', function(e) {
+                    if (e.target === updateModal) {
+                        hideUpdateModal();
+                    }
+                });
             }
         });
 
@@ -328,10 +623,15 @@
                 
                 console.log('✓ Complaint found:', doc.id);
                 console.log('Current status:', complaint.status);
+                console.log('Closed at:', complaint.closedAt);
 
                 // Check if already closed
                 if (complaint.status === 'Closed') {
-                    showNotification('This complaint is already closed.', 'error');
+                    const closedDate = formatClosedDate(complaint.closedAt);
+                    const message = closedDate 
+                        ? `Complaint with job number ${jobNumber} is already closed on ${closedDate}`
+                        : `Complaint with job number ${jobNumber} is already closed`;
+                    showNotification(message, 'error');
                     return { success: false, error: 'Already closed' };
                 }
 
@@ -394,8 +694,11 @@
                 if (result.success) {
                     // Clear the form after successful close
                     setTimeout(() => {
-                        document.getElementById('jobNumber').value = '';
-                        document.getElementById('jobNumber').focus();
+                        const jobNumberInput = document.getElementById('jobNumber');
+                        jobNumberInput.value = '';
+                        jobNumberInput.focus();
+                        // Disable button after clearing field
+                        toggleCloseButton();
                     }, 1500);
                 }
             } catch (error) {
@@ -417,4 +720,4 @@
         });
     </script>
 </body>
-</html>
+</html> 
