@@ -255,6 +255,40 @@
         .day-report-btn:active {
             background-color: #D84315;
         }
+
+        .mini-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .mini-table th, .mini-table td {
+            text-align: left;
+            padding: 8px 6px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            color: #444;
+        }
+
+        .mini-table th {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .mini-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .mini-table .job-number {
+            font-weight: 600;
+            color: #2196F3;
+        }
+
+        .mini-table .empty-row td {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -322,6 +356,23 @@
                         <a href="renew.html" class="renew-link">Renew Subscription</a>
                     </div>
                 </div>
+            </div>
+
+            <div class="card">
+                <h2>🕒 Today's Closed Details</h2>
+                <table class="mini-table">
+                    <thead>
+                        <tr>
+                            <th>Job Number</th>
+                            <th>Closed At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="todayClosedDetails">
+                        <tr class="empty-row">
+                            <td colspan="2">No closures recorded yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -526,6 +577,87 @@
             }
         }
         
+        function parseClosedAtToDate(value) {
+            if (!value) return null;
+            try {
+                if (value.toDate && typeof value.toDate === 'function') {
+                    return value.toDate();
+                }
+                if (value.seconds) {
+                    return new Date(value.seconds * 1000);
+                }
+                if (value instanceof Date) {
+                    return value;
+                }
+                if (typeof value === 'string') {
+                    let normalized = value;
+                    if (value.includes('UTC')) {
+                        normalized = value.replace('UTC', 'GMT');
+                    }
+                    const parsed = new Date(normalized);
+                    if (!isNaN(parsed.getTime())) {
+                        return parsed;
+                    }
+                }
+            } catch (err) {
+                console.warn('Unable to parse closedAt value:', value, err);
+            }
+            return null;
+        }
+
+        function formatClosedAtDisplay(value) {
+            const date = parseClosedAtToDate(value);
+            if (!date) {
+                return 'Not available';
+            }
+            return date.toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        function renderClosedDetails(details) {
+            const tbody = document.getElementById('todayClosedDetails');
+            if (!tbody) {
+                return;
+            }
+
+            const sanitized = (details || []).filter(item => item);
+            sanitized.sort((a, b) => {
+                const dateA = parseClosedAtToDate(a.closedAt);
+                const dateB = parseClosedAtToDate(b.closedAt);
+                const sortA = dateA ? dateA.getTime() : Number.POSITIVE_INFINITY;
+                const sortB = dateB ? dateB.getTime() : Number.POSITIVE_INFINITY;
+                return sortA - sortB;
+            });
+
+            if (sanitized.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-row">
+                        <td colspan="2">No closures recorded yet.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = sanitized.map(item => {
+                const jobNumber = item.jobNumber || 'N/A';
+                const closedAtText = formatClosedAtDisplay(item.closedAt);
+                return `
+                    <tr>
+                        <td class="job-number">${jobNumber}</td>
+                        <td>${closedAtText}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
         // Get today's complaint counts (no caching)
         async function getComplaintCounts() {
             console.log('=== getComplaintCounts STARTED ===');
@@ -574,6 +706,13 @@
 
                 const todayOpenCount = todayOpenSnapshot.size;
                 const todayClosedCount = todayClosedSnapshot.size;
+                const closedDetails = todayClosedSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        jobNumber: data.jobNumber || '',
+                        closedAt: data.closedAt || data.closedDate || null
+                    };
+                });
                 
                 console.log(`✓ Today's Open: ${todayOpenCount}, Today's Closed: ${todayClosedCount}`);
 
@@ -582,6 +721,7 @@
                 document.getElementById('todayClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${todayClosedCount}</span>`;
                 document.getElementById('todayOpenLabel').textContent = `Opened on ${todayStr}`;
                 document.getElementById('todayClosedLabel').textContent = `Closed on ${todayStr}`;
+                renderClosedDetails(closedDetails);
                 
                 // Render the chart with today's data
                 renderComplaintChart(todayOpenCount, todayClosedCount);
