@@ -255,6 +255,46 @@
         .day-report-btn:active {
             background-color: #D84315;
         }
+        
+        .date-selector-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 10px;
+        }
+        
+        .date-selector-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .date-selector-icon {
+            position: absolute;
+            left: 10px;
+            color: #666;
+            pointer-events: none;
+            font-size: 16px;
+        }
+        
+        .date-selector-input {
+            padding: 8px 15px 8px 35px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: white;
+        }
+        
+        .date-selector-input:hover {
+            border-color: #2196F3;
+        }
+        
+        .selected-date-display {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
 
         .mini-table {
             width: 100%;
@@ -313,10 +353,17 @@
     <div class="header">
         <button class="menu-btn" onclick="toggleMenu()">☰</button>
         <div class="welcome-message" id="welcomeMessage"></div>
-        <button class="day-report-btn" id="dayReportBtn" onclick="generateDayEndReport()">
-            <span>📄</span>
-            <span>Day End Report</span>
-        </button>
+        <div class="date-selector-container">
+            <div class="date-selector-wrapper">
+                <span class="date-selector-icon">📅</span>
+                <input type="date" class="date-selector-input" id="dateSelector" />
+            </div>
+            <span class="selected-date-display" id="selectedDateDisplay"></span>
+            <button class="day-report-btn" id="dayReportBtn" onclick="generateDayEndReport()">
+                <span>📄</span>
+                <span>Day End Report</span>
+            </button>
+        </div>
         <button class="sync-btn" id="syncBtn" onclick="syncUserData()">
             <span>🔄</span>
             <span id="syncBtnText">Sync Rights</span>
@@ -658,8 +705,8 @@
             }).join('');
         }
 
-        // Get today's complaint counts (no caching)
-        async function getComplaintCounts() {
+        // Get complaint counts for a specific date (no caching)
+        async function getComplaintCounts(selectedDate = null) {
             console.log('=== getComplaintCounts STARTED ===');
             try {
                 const companyCode = localStorage.getItem('companyCode');
@@ -672,41 +719,62 @@
                     return;
                 }
 
-                // Get today's date in YYYY-MM-DD format
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
+                // Use selected date or today's date
+                let targetDate;
+                if (selectedDate) {
+                    targetDate = new Date(selectedDate);
+                } else {
+                    targetDate = new Date();
+                }
+                const dateStr = targetDate.toISOString().split('T')[0];
 
                 // Display the Firestore path in console for debugging
                 const basePath = `complaints/cmplts/${companyCode}/complaints/complaints-coll`;
                 console.log('📂 Base Firestore Path:', basePath);
-                console.log('📂 Today Open Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open') → where(complaintDate=='${todayStr}')`);
-                console.log('📂 Today Closed Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Closed') → where(complaintDate=='${todayStr}')`);
-
-                // Query today's open complaints
-                const todayOpenSnapshot = await db.collection('complaints')
+                console.log('📂 Selected Date:', dateStr);
+                
+                // For open complaints: filter by complaintDate (when complaint was opened)
+                console.log('📂 Open Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Open') → where(complaintDate=='${dateStr}')`);
+                
+                // Query open complaints opened on selected date
+                const openSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode)
                     .where('status', '==', 'Open')
-                    .where('complaintDate', '==', todayStr)
+                    .where('complaintDate', '==', dateStr)
                     .get();
 
-                // Query today's closed complaints
-                const todayClosedSnapshot = await db.collection('complaints')
+                // For closed complaints: filter by closedAt (when complaint was closed)
+                // Create start and end timestamps for the selected date
+                const startOfDay = new Date(targetDate);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(targetDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                
+                const startTimestamp = firebase.firestore.Timestamp.fromDate(startOfDay);
+                const endTimestamp = firebase.firestore.Timestamp.fromDate(endOfDay);
+                
+                console.log('📂 Closed Query:', `${basePath} → where(companyCode=='${companyCode}') → where(status=='Closed') → where(closedAt >= ${startTimestamp.toDate().toISOString()}) → where(closedAt <= ${endTimestamp.toDate().toISOString()})`);
+                console.log('📂 IMPORTANT: Closed complaints are filtered by closedAt date range, NOT by complaintDate or createdAt');
+                
+                // Query closed complaints closed on selected date (regardless of when they were opened)
+                const closedSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode)
                     .where('status', '==', 'Closed')
-                    .where('complaintDate', '==', todayStr)
+                    .where('closedAt', '>=', startTimestamp)
+                    .where('closedAt', '<=', endTimestamp)
                     .get();
 
-                const todayOpenCount = todayOpenSnapshot.size;
-                const todayClosedCount = todayClosedSnapshot.size;
-                const closedDetails = todayClosedSnapshot.docs.map(doc => {
+                const openCount = openSnapshot.size;
+                const closedCount = closedSnapshot.size;
+                const closedDetails = closedSnapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
                         jobNumber: data.jobNumber || '',
@@ -714,17 +782,17 @@
                     };
                 });
                 
-                console.log(`✓ Today's Open: ${todayOpenCount}, Today's Closed: ${todayClosedCount}`);
+                console.log(`✓ Open: ${openCount}, Closed: ${closedCount} (for date: ${dateStr})`);
 
                 // Update UI
-                document.getElementById('todayOpenComplaints').innerHTML = `<span style="color: #2196F3;">${todayOpenCount}</span>`;
-                document.getElementById('todayClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${todayClosedCount}</span>`;
-                document.getElementById('todayOpenLabel').textContent = `Opened on ${todayStr}`;
-                document.getElementById('todayClosedLabel').textContent = `Closed on ${todayStr}`;
+                document.getElementById('todayOpenComplaints').innerHTML = `<span style="color: #2196F3;">${openCount}</span>`;
+                document.getElementById('todayClosedComplaints').innerHTML = `<span style="color: #4CAF50;">${closedCount}</span>`;
+                document.getElementById('todayOpenLabel').textContent = `Opened on ${dateStr}`;
+                document.getElementById('todayClosedLabel').textContent = `Closed on ${dateStr}`;
                 renderClosedDetails(closedDetails);
                 
-                // Render the chart with today's data
-                renderComplaintChart(todayOpenCount, todayClosedCount);
+                // Render the chart with the data
+                renderComplaintChart(openCount, closedCount);
 
             } catch (error) {
                 console.error('=== ERROR in getComplaintCounts ===');
@@ -814,9 +882,11 @@
                     });
             }
             
-            // Load complaint counts with smart caching
+            // Load complaint counts with selected date
             console.log('=== Calling getComplaintCounts from continueWithUserData ===');
-            getComplaintCounts().catch(err => {
+            const dateSelector = document.getElementById('dateSelector');
+            const selectedDate = dateSelector && dateSelector.value ? dateSelector.value : null;
+            getComplaintCounts(selectedDate).catch(err => {
                 console.error('Error calling getComplaintCounts:', err);
             });
         }
@@ -906,6 +976,35 @@
             console.log('✓ Chart rendered successfully');
         }
 
+        // Helper function to format date for display
+        function formatDateForDisplay(date) {
+            if (!date) return 'N/A';
+            try {
+                let dateObj;
+                if (date.toDate && typeof date.toDate === 'function') {
+                    dateObj = date.toDate();
+                } else if (date.seconds) {
+                    dateObj = new Date(date.seconds * 1000);
+                } else if (date instanceof Date) {
+                    dateObj = date;
+                } else {
+                    dateObj = new Date(date);
+                }
+                return dateObj.toLocaleString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    year: 'numeric',
+                    month: 'short',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+            } catch (err) {
+                return 'N/A';
+            }
+        }
+
         // Function to generate Day End Report PDF
         window.generateDayEndReport = async function() {
             const dayReportBtn = document.getElementById('dayReportBtn');
@@ -924,10 +1023,17 @@
                     return;
                 }
 
-                // Get today's date
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                const printTime = today.toLocaleString('en-US', { 
+                // Get selected date or today's date
+                const dateSelector = document.getElementById('dateSelector');
+                let targetDate;
+                if (dateSelector.value) {
+                    targetDate = new Date(dateSelector.value);
+                } else {
+                    targetDate = new Date();
+                }
+                const reportDateStr = targetDate.toISOString().split('T')[0];
+                
+                const printTime = new Date().toLocaleString('en-US', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric', 
@@ -936,28 +1042,41 @@
                     second: '2-digit' 
                 });
 
-                console.log('📊 Generating Day End Report...');
+                console.log('📊 Generating Day End Report for date:', reportDateStr);
                 
-                // Query today's open complaints
-                const todayOpenSnapshot = await db.collection('complaints')
+                // Create start and end timestamps for the selected date
+                const startOfDay = new Date(targetDate);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(targetDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                
+                const startTimestamp = firebase.firestore.Timestamp.fromDate(startOfDay);
+                const endTimestamp = firebase.firestore.Timestamp.fromDate(endOfDay);
+                
+                // Query open complaints opened on selected date
+                console.log('📂 Open Query: where(companyCode==companyCode) → where(status==Open) → where(complaintDate==reportDateStr)');
+                const openSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode)
                     .where('status', '==', 'Open')
-                    .where('complaintDate', '==', todayStr)
+                    .where('complaintDate', '==', reportDateStr)
                     .get();
 
-                // Query today's closed complaints
-                const todayClosedSnapshot = await db.collection('complaints')
+                // Query closed complaints closed on selected date (filtered by closedAt, NOT complaintDate or createdAt)
+                console.log('📂 Closed Query: where(companyCode==companyCode) → where(status==Closed) → where(closedAt >= startTimestamp) → where(closedAt <= endTimestamp)');
+                console.log('📂 IMPORTANT: Closed complaints filtered by closedAt date range, NOT by complaintDate or createdAt');
+                const closedSnapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode)
                     .where('status', '==', 'Closed')
-                    .where('complaintDate', '==', todayStr)
+                    .where('closedAt', '>=', startTimestamp)
+                    .where('closedAt', '<=', endTimestamp)
                     .get();
 
                 // Query total open complaints (all time)
@@ -970,9 +1089,25 @@
                     .where('status', '==', 'Open')
                     .get();
 
-                const todayOpenCount = todayOpenSnapshot.size;
-                const todayClosedCount = todayClosedSnapshot.size;
+                const openCount = openSnapshot.size;
+                const closedCount = closedSnapshot.size;
                 const totalOpenTillNow = totalOpenSnapshot.size;
+                
+                // Prepare closed complaints data for table (sorted by closedAt, oldest first)
+                const closedComplaintsData = closedSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        jobNumber: data.jobNumber || 'N/A',
+                        createdAt: data.createdAt || data.createdDate || null,
+                        closedAt: data.closedAt || data.closedDate || null
+                    };
+                }).sort((a, b) => {
+                    const dateA = parseClosedAtToDate(a.closedAt);
+                    const dateB = parseClosedAtToDate(b.closedAt);
+                    const sortA = dateA ? dateA.getTime() : 0;
+                    const sortB = dateB ? dateB.getTime() : 0;
+                    return sortA - sortB; // Oldest first
+                });
 
                 // Create PDF
                 const { jsPDF } = window.jspdf;
@@ -991,38 +1126,74 @@
                 // Add date and time
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
-                doc.text(`Report Date: ${todayStr}`, 20, 45);
+                doc.text(`Report Date: ${reportDateStr}`, 20, 45);
                 doc.text(`Generated By: ${userEmail}`, 20, 52);
                 doc.text(`Generated At: ${printTime}`, 20, 59);
 
-                // Today's Summary Table
+                // Summary Table
                 doc.setFontSize(14);
                 doc.setTextColor(0, 0, 0);
-                doc.text("Today's Summary", 20, 75);
+                doc.text(`Summary for ${reportDateStr}`, 20, 75);
 
                 doc.autoTable({
                     startY: 80,
                     head: [['Metric', 'Count']],
                     body: [
-                        ['Today\'s Open Complaints', todayOpenCount.toString()],
-                        ['Today\'s Closed Complaints', todayClosedCount.toString()]
+                        [`Open Complaints (Opened on ${reportDateStr})`, openCount.toString()],
+                        [`Closed Complaints (Closed on ${reportDateStr})`, closedCount.toString()]
                     ],
                     theme: 'striped',
                     headStyles: { fillColor: [33, 150, 243] },
                     margin: { left: 20, right: 20 }
                 });
 
-                // Total Open Complaints Section
-                const firstTableY = doc.lastAutoTable.finalY + 20;
+                // Closed Complaints Details Table
+                const summaryTableY = doc.lastAutoTable.finalY + 20;
                 doc.setFontSize(14);
                 doc.setTextColor(0, 0, 0);
-                doc.text("Total Open Complaints (Till Now)", 20, firstTableY);
+                doc.text(`Closed Complaints Details (Closed on ${reportDateStr})`, 20, summaryTableY);
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
-                doc.text("All open complaints up to now (regardless of date)", 20, firstTableY + 7);
+                doc.text("Ordered by closedAt (oldest first)", 20, summaryTableY + 7);
+
+                if (closedComplaintsData.length > 0) {
+                    const tableData = closedComplaintsData.map(item => [
+                        item.jobNumber,
+                        formatDateForDisplay(item.createdAt),
+                        formatDateForDisplay(item.closedAt)
+                    ]);
+
+                    doc.autoTable({
+                        startY: summaryTableY + 12,
+                        head: [['Job Number', 'Created At', 'Closed At']],
+                        body: tableData,
+                        theme: 'striped',
+                        headStyles: { fillColor: [76, 175, 80] },
+                        margin: { left: 20, right: 20 },
+                        styles: { fontSize: 8 },
+                        columnStyles: {
+                            0: { cellWidth: 40 },
+                            1: { cellWidth: 70 },
+                            2: { cellWidth: 70 }
+                        }
+                    });
+                } else {
+                    doc.setFontSize(10);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text('No closed complaints found for this date.', 20, summaryTableY + 12);
+                }
+
+                // Total Open Complaints Section
+                const closedTableY = closedComplaintsData.length > 0 ? doc.lastAutoTable.finalY + 20 : summaryTableY + 20;
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 0);
+                doc.text("Total Open Complaints (Till Now)", 20, closedTableY);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text("All open complaints up to now (regardless of date)", 20, closedTableY + 7);
 
                 doc.autoTable({
-                    startY: firstTableY + 12,
+                    startY: closedTableY + 12,
                     head: [['Metric', 'Count']],
                     body: [
                         ['Total Open Complaints (Till Now)', totalOpenTillNow.toString()]
@@ -1036,7 +1207,8 @@
                 const finalY = doc.lastAutoTable.finalY + 15;
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
-                doc.text('Note: This report shows today\'s activity and total open complaints.', 20, finalY);
+                doc.text(`Note: This report shows activity for ${reportDateStr} and total open complaints.`, 20, finalY);
+                doc.text('Closed complaints are filtered by closedAt date, not by complaintDate or createdAt.', 20, finalY + 7);
 
                 // Add footer with generation info
                 const pageCount = doc.internal.getNumberOfPages();
@@ -1053,7 +1225,7 @@
                 }
 
                 // Save the PDF
-                const fileName = `Day_End_Report_${todayStr}_${Date.now()}.pdf`;
+                const fileName = `Day_End_Report_${reportDateStr}_${Date.now()}.pdf`;
                 doc.save(fileName);
 
                 console.log('✓ PDF generated successfully');
@@ -1080,8 +1252,28 @@
             }
         }
 
-        // Call fetchUserData when the page loads
-        document.addEventListener('DOMContentLoaded', fetchUserData);
+        // Initialize date selector
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchUserData();
+            
+            // Set default date to today
+            const dateSelector = document.getElementById('dateSelector');
+            const today = new Date().toISOString().split('T')[0];
+            dateSelector.value = today;
+            document.getElementById('selectedDateDisplay').textContent = `Date: ${today}`;
+            
+            // Add event listener for date change
+            dateSelector.addEventListener('change', function() {
+                const selectedDate = dateSelector.value;
+                if (selectedDate) {
+                    document.getElementById('selectedDateDisplay').textContent = `Date: ${selectedDate}`;
+                    // Reload data with selected date
+                    getComplaintCounts(selectedDate).catch(err => {
+                        console.error('Error reloading data:', err);
+                    });
+                }
+            });
+        });
 
         // Add logout function
         window.logout = function() {

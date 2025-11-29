@@ -1705,101 +1705,46 @@
         // Send Telegram notification
         async function sendTelegramNotification(complaintData, isUpdate = false) {
             try {
-                const action = isUpdate ? '🔄 UPDATED' : '🆕 NEW';
-                
-                // Debug: Log the complaint data to identify problematic content
-                console.log('Complaint Data for Telegram:', complaintData);
-                
-                // Escape special characters that break Markdown
-                const escapeMarkdown = (text) => {
-                    if (!text) return 'N/A';
-                    const originalText = text.toString();
-                    const escapedText = originalText
-                        .replace(/_/g, '\\_')
-                        .replace(/\*/g, '\\*')
-                        .replace(/\[/g, '\\[')
-                        .replace(/\]/g, '\\]')
-                        .replace(/\(/g, '\\(')
-                        .replace(/\)/g, '\\)')
-                        .replace(/~/g, '\\~')
-                        .replace(/`/g, '\\`')
-                        .replace(/>/g, '\\>')
-                        .replace(/#/g, '\\#')
-                        .replace(/\+/g, '\\+')
-                        .replace(/-/g, '\\-')
-                        .replace(/=/g, '\\=')
-                        .replace(/\|/g, '\\|')
-                        .replace(/\{/g, '\\{')
-                        .replace(/\}/g, '\\}')
-                        .replace(/\./g, '\\.')
-                        .replace(/!/g, '\\!');
-                    
-                    // Debug: Log if text was modified
-                    if (originalText !== escapedText) {
-                        console.log('Escaped text:', { original: originalText, escaped: escapedText });
-                    }
-                    
-                    return escapedText;
+                // Helper function to format text (remove extra spaces, handle empty values)
+                const formatValue = (value) => {
+                    if (!value || value.trim() === '') return '';
+                    return value.toString().trim();
                 };
 
-                const message = `
-${action} COMPLAINT NOTIFICATION
+                // Build name with dealer if available
+                let nameWithDealer = formatValue(complaintData.customerName);
+                if (complaintData.dealer && complaintData.dealer.trim() !== '') {
+                    nameWithDealer = nameWithDealer ? `${nameWithDealer} ${complaintData.dealer}` : complaintData.dealer;
+                }
 
-👤 *Customer Information*
-• Name: ${escapeMarkdown(complaintData.customerName)}
-• Phone: ${escapeMarkdown(complaintData.phoneNumber)}
-• Alternate: ${escapeMarkdown(complaintData.alternateNumber)}
-• Email: ${escapeMarkdown(complaintData.email)}
-• Address: ${escapeMarkdown(complaintData.address)}
-• Pin Code: ${escapeMarkdown(complaintData.pinCode)}
+                // Format warranty value
+                let warrantyValue = formatValue(complaintData.underWarranty);
+                if (warrantyValue === 'Yes') {
+                    warrantyValue = 'warranty';
+                } else if (warrantyValue === 'No') {
+                    warrantyValue = 'no warranty';
+                } else if (!warrantyValue) {
+                    warrantyValue = '';
+                }
 
-🏢 *Dealer Details*
-• Dealer: ${escapeMarkdown(complaintData.dealer)}
+                // Format priority (abbreviate if needed)
+                let priorityValue = formatValue(complaintData.priority);
+                if (priorityValue === 'High') {
+                    priorityValue = 'HIGH';
+                } else if (priorityValue === 'Low') {
+                    priorityValue = 'LOW';
+                }
 
-📅 *Complaint Details*
-• Complaint Date: ${escapeMarkdown(complaintData.complaintDate)}
-• Purchase Date: ${escapeMarkdown(complaintData.purchaseDate)}
-• Under Warranty: ${escapeMarkdown(complaintData.underWarranty)}
-
-📱 *Product Information*
-• Brand: ${escapeMarkdown(complaintData.brand)}
-• Category: ${escapeMarkdown(complaintData.category)}
-• Serial Number: ${escapeMarkdown(complaintData.itemSerialNumber)}
-• No. of Products: ${complaintData.numberOfProducts || 1}
-• Priority: ${complaintData.priority === 'High' ? '🔴 HIGH' : '🟡 LOW'}
-
-🔧 *Service Information*
-• Job Date: ${escapeMarkdown(complaintData.jobDate)}
-• Job Number: ${escapeMarkdown(complaintData.jobNumber)}
-• Agent Telegram ID: ${escapeMarkdown(complaintData.agentTelegramId)}
-
-📝 *Description*
-${escapeMarkdown(complaintData.description)}
-
-💭 *Reason*
-${escapeMarkdown(complaintData.reason)}
-
-⏰ *Timestamp*
-${new Date().toLocaleString('en-IN', { 
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-})}
-
-🏢 *Company Code*
-${escapeMarkdown(complaintData.companyCode)}
-                `.trim();
+                // Build short message in the requested format
+                const message = `Complainant Number: ${formatValue(complaintData.phoneNumber)}, Name: ${nameWithDealer || ''}, Job No:${formatValue(complaintData.jobNumber)}, Address:${formatValue(complaintData.address)} , Problem:${formatValue(complaintData.description || complaintData.reason || '')}, Warrenty:${warrantyValue}, Priority:${priorityValue}`;
 
                 const encodedMessage = encodeURIComponent(message);
                 const telegramId = complaintData.agentTelegramId;
-                const telegramUrl = `https://api.telegram.org/bot1647627417:AAEJ_r5VnmbwSXw2NV6VSqeXt7PAqbBEvec/sendmessage?chat_id=${telegramId}&text=${encodedMessage}&parse_mode=Markdown`;
+                const telegramUrl = `https://api.telegram.org/bot1647627417:AAEJ_r5VnmbwSXw2NV6VSqeXt7PAqbBEvec/sendmessage?chat_id=${telegramId}&text=${encodedMessage}`;
                 
                 // Log Telegram ID and API URL
                 console.log('Sending to Telegram ID:', telegramId);
+                console.log('Telegram Message:', message);
                 console.log('Telegram API URL:', telegramUrl);
 
                 const response = await fetch(telegramUrl);
@@ -1811,95 +1756,16 @@ ${escapeMarkdown(complaintData.companyCode)}
                     console.log('Telegram notification sent successfully');
                     showNotification(`Telegram notification sent successfully! (ID: ${telegramId})`);
                 } else {
-                    console.error('Failed to send Telegram notification with Markdown:', result);
-                    
-                    // If Markdown fails, try sending without Markdown formatting
-                    if (result.error_code === 400) {
-                        console.log('Trying to send without Markdown formatting...');
-                        
-                        // Create a plain text version without Markdown
-                        const plainMessage = `
-${action} COMPLAINT NOTIFICATION
-
-👤 Customer Information
-• Name: ${complaintData.customerName || 'N/A'}
-• Phone: ${complaintData.phoneNumber || 'N/A'}
-• Alternate: ${complaintData.alternateNumber || 'N/A'}
-• Email: ${complaintData.email || 'N/A'}
-• Address: ${complaintData.address || 'N/A'}
-• Pin Code: ${complaintData.pinCode || 'N/A'}
-
-🏢 Dealer Details
-• Dealer: ${complaintData.dealer || 'N/A'}
-
-📅 Complaint Details
-• Complaint Date: ${complaintData.complaintDate || 'N/A'}
-• Purchase Date: ${complaintData.purchaseDate || 'N/A'}
-• Under Warranty: ${complaintData.underWarranty || 'N/A'}
-
-📱 Product Information
-• Brand: ${complaintData.brand || 'N/A'}
-• Category: ${complaintData.category || 'N/A'}
-• Serial Number: ${complaintData.itemSerialNumber || 'N/A'}
-• No. of Products: ${complaintData.numberOfProducts || 1}
-• Priority: ${complaintData.priority === 'High' ? '🔴 HIGH' : '🟡 LOW'}
-
-🔧 Service Information
-• Job Date: ${complaintData.jobDate || 'N/A'}
-• Job Number: ${complaintData.jobNumber || 'N/A'}
-• Agent Telegram ID: ${complaintData.agentTelegramId || 'N/A'}
-
-📝 Description
-${complaintData.description || 'N/A'}
-
-💭 Reason
-${complaintData.reason || 'N/A'}
-
-⏰ Timestamp
-${new Date().toLocaleString('en-IN', { 
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-})}
-
-🏢 Company Code
-${complaintData.companyCode || 'N/A'}
-                        `.trim();
-
-                        const plainEncodedMessage = encodeURIComponent(plainMessage);
-                        const plainTelegramUrl = `https://api.telegram.org/bot1647627417:AAEJ_r5VnmbwSXw2NV6VSqeXt7PAqbBEvec/sendmessage?chat_id=${telegramId}&text=${plainEncodedMessage}`;
-                        
-                        // Log Telegram ID and API URL for plain text
-                        console.log('Sending to Telegram ID (plain):', telegramId);
-                        console.log('Telegram API URL (plain):', plainTelegramUrl);
-
-                        const plainResponse = await fetch(plainTelegramUrl);
-                        const plainResult = await plainResponse.json();
-                        
-                        console.log('Plain text Telegram API Response:', plainResult);
-                        
-                        if (plainResult.ok) {
-                            console.log('Telegram notification sent successfully (plain text)');
-                            showNotification(`Telegram notification sent successfully! (plain text, ID: ${telegramId})`);
-                        } else {
-                            console.error('Failed to send plain text Telegram notification:', plainResult);
-                            showNotification('Telegram notification failed even with plain text. Please check console for details.', 'error');
-                        }
-                    } else {
-                        let errorMessage = 'Telegram notification failed.';
-                        if (result.error_code === 401) {
-                            errorMessage += ' Unauthorized - check bot token.';
-                        } else if (result.error_code === 403) {
-                            errorMessage += ' Forbidden - check chat ID.';
-                        } else if (result.error_code === 429) {
-                            errorMessage += ' Rate limited - too many requests.';
-                        }
-                        showNotification(errorMessage, 'error');
+                    console.error('Failed to send Telegram notification:', result);
+                    let errorMessage = 'Telegram notification failed.';
+                    if (result.error_code === 401) {
+                        errorMessage += ' Unauthorized - check bot token.';
+                    } else if (result.error_code === 403) {
+                        errorMessage += ' Forbidden - check chat ID.';
+                    } else if (result.error_code === 429) {
+                        errorMessage += ' Rate limited - too many requests.';
                     }
+                    showNotification(errorMessage, 'error');
                 }
             } catch (error) {
                 console.error('Error sending Telegram notification:', error);
