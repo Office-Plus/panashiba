@@ -324,6 +324,11 @@
             color: #2196F3;
         }
 
+        .mini-table .ticket-id {
+            font-weight: 600;
+            color: #7B1FA2;
+        }
+
         .mini-table .empty-row td {
             text-align: center;
             color: #999;
@@ -404,23 +409,25 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="card">
-                <h2>🕒 Today's Closed Details</h2>
-                <table class="mini-table">
-                    <thead>
-                        <tr>
-                            <th>Job Number</th>
-                            <th>Closed At</th>
-                        </tr>
-                    </thead>
-                    <tbody id="todayClosedDetails">
-                        <tr class="empty-row">
-                            <td colspan="2">No closures recorded yet.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <!-- Full-width closed complaints table in second row -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>🕒 Today's Closed Details</h2>
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        <th>Ticket ID</th>
+                        <th>Job Number</th>
+                        <th>Closed At</th>
+                    </tr>
+                </thead>
+                <tbody id="todayClosedDetails">
+                    <tr class="empty-row">
+                        <td colspan="3">No closures recorded yet.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="chart-container">
@@ -687,17 +694,19 @@
             if (sanitized.length === 0) {
                 tbody.innerHTML = `
                     <tr class="empty-row">
-                        <td colspan="2">No closures recorded yet.</td>
+                        <td colspan="3">No closures recorded yet.</td>
                     </tr>
                 `;
                 return;
             }
 
             tbody.innerHTML = sanitized.map(item => {
+                const ticketId = item.ticketId || 'N/A';
                 const jobNumber = item.jobNumber || 'N/A';
                 const closedAtText = formatClosedAtDisplay(item.closedAt);
                 return `
                     <tr>
+                        <td class="ticket-id">${ticketId}</td>
                         <td class="job-number">${jobNumber}</td>
                         <td>${closedAtText}</td>
                     </tr>
@@ -777,6 +786,7 @@
                 const closedDetails = closedSnapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
+                        ticketId: data.ticketId || '',
                         jobNumber: data.jobNumber || '',
                         closedAt: data.closedAt || data.closedDate || null
                     };
@@ -1097,6 +1107,7 @@
                 const closedComplaintsData = closedSnapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
+                        ticketId: data.ticketId || 'N/A',
                         jobNumber: data.jobNumber || 'N/A',
                         createdAt: data.createdAt || data.createdDate || null,
                         closedAt: data.closedAt || data.closedDate || null
@@ -1158,6 +1169,7 @@
 
                 if (closedComplaintsData.length > 0) {
                     const tableData = closedComplaintsData.map(item => [
+                        item.ticketId,
                         item.jobNumber,
                         formatDateForDisplay(item.createdAt),
                         formatDateForDisplay(item.closedAt)
@@ -1165,16 +1177,17 @@
 
                     doc.autoTable({
                         startY: summaryTableY + 12,
-                        head: [['Job Number', 'Created At', 'Closed At']],
+                        head: [['Ticket ID', 'Job Number', 'Created At', 'Closed At']],
                         body: tableData,
                         theme: 'striped',
                         headStyles: { fillColor: [76, 175, 80] },
                         margin: { left: 20, right: 20 },
                         styles: { fontSize: 8 },
                         columnStyles: {
-                            0: { cellWidth: 40 },
-                            1: { cellWidth: 70 },
-                            2: { cellWidth: 70 }
+                            0: { cellWidth: 25 },
+                            1: { cellWidth: 35 },
+                            2: { cellWidth: 65 },
+                            3: { cellWidth: 65 }
                         }
                     });
                 } else {

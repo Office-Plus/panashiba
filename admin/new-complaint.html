@@ -728,10 +728,11 @@
                  </button>
              </div>
 
-            <table>
+           <table>
                 <thead>
                     <tr>
                         <th style="width: 50px;">#</th>
+                        <th>Ticket ID</th>
                         <th>Customer Name</th>
                         <th>Phone Number</th>
                         <th>Dealer</th>
@@ -1130,6 +1131,7 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="text-align: center; font-weight: bold; color: #666;">1</td>
+                        <td>${complaint.ticketId || ''}</td>
                         <td>${complaint.customerName || ''}</td>
                         <td>${complaint.phoneNumber || ''}</td>
                         <td>${complaint.dealer || ''}</td>
@@ -1208,6 +1210,7 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="text-align: center; font-weight: bold; color: #666;">1</td>
+                        <td>${complaint.ticketId || ''}</td>
                         <td>${complaint.customerName || ''}</td>
                         <td>${complaint.phoneNumber || ''}</td>
                         <td>${complaint.dealer || ''}</td>
@@ -1533,6 +1536,7 @@
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="text-align: center; font-weight: bold; color: #666;">${currentRowNumber}</td>
+                        <td>${complaint.ticketId || ''}</td>
                         <td>${complaint.customerName || ''}</td>
                         <td>${complaint.phoneNumber || ''}</td>
                         <td>${complaint.dealer || ''}</td>
@@ -1876,8 +1880,8 @@
                     priorityValue = 'LOW';
                 }
 
-                // Build short message in the requested format
-                const message = `Complainant Number: ${formatValue(complaintData.phoneNumber)}, Name: ${nameWithDealer || ''}, Job No:${formatValue(complaintData.jobNumber)}, Address:${formatValue(complaintData.address)} , Problem:${formatValue(complaintData.description || complaintData.reason || '')}, Warrenty:${warrantyValue}, Priority:${priorityValue}`;
+                // Build short message in the requested format (with Ticket ID at the end)
+                const message = `Complainant Number: ${formatValue(complaintData.phoneNumber)}, Name: ${nameWithDealer || ''}, Job No:${formatValue(complaintData.jobNumber)}, Address:${formatValue(complaintData.address)} , Problem:${formatValue(complaintData.description || complaintData.reason || '')}, Warrenty:${warrantyValue}, Priority:${priorityValue}, Ticket ID:${formatValue(String(complaintData.ticketId || ''))}`;
 
                 const encodedMessage = encodeURIComponent(message);
                 const telegramId = complaintData.agentTelegramId;
