@@ -657,15 +657,21 @@
             </div>
         </div>
 
-                 <div id="listTab" class="tab-content">
-                              <div class="search-filters">
-                 <div class="search-job-number-container">
-                     <input type="text" id="searchComplaintNo" placeholder="Enter complaint number and press Enter...">
-                     <button type="button" id="searchJobBtn" class="search-job-btn" title="Search">
-                         <span>→</span>
-                     </button>
-                 </div>
-                 <input type="text" id="searchPhoneNumber" placeholder="Search by phone number...">
+        <div id="listTab" class="tab-content">
+                     <div class="search-filters">
+                <div class="search-job-number-container">
+                    <input type="text" id="searchComplaintNo" placeholder="Enter complaint number and press Enter...">
+                    <button type="button" id="searchJobBtn" class="search-job-btn" title="Search">
+                        <span>→</span>
+                    </button>
+                </div>
+                <div class="search-job-number-container">
+                    <input type="text" id="searchTicketId" placeholder="Enter Ticket ID and press Enter...">
+                    <button type="button" id="searchTicketBtn" class="search-job-btn" title="Search Ticket ID">
+                        <span>→</span>
+                    </button>
+                </div>
+                <input type="text" id="searchPhoneNumber" placeholder="Search by phone number...">
                  <select id="searchBrand">
                      <option value="">All Brands</option>
                  </select>
@@ -909,6 +915,31 @@
                  }
              });
 
+            // Ticket ID search (Enter key)
+            const ticketInput = document.getElementById('searchTicketId');
+            if (ticketInput) {
+                ticketInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const ticketId = this.value.trim();
+                        if (ticketId) {
+                            searchByTicketId(ticketId);
+                        }
+                    }
+                });
+            }
+
+            // Ticket ID search button click
+            const ticketBtn = document.getElementById('searchTicketBtn');
+            if (ticketBtn) {
+                ticketBtn.addEventListener('click', function() {
+                    const ticketId = document.getElementById('searchTicketId').value.trim();
+                    if (ticketId) {
+                        searchByTicketId(ticketId);
+                    }
+                });
+            }
+
                           // Main search button click
              document.getElementById('searchBtn').addEventListener('click', function() {
                  console.log('=== SEARCH BUTTON CLICKED ===');
@@ -1126,6 +1157,84 @@
                 }
             } catch (error) {
                 console.error('Error searching by job number:', error);
+                showNotification('Error searching for complaint. Please try again.', 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Search by Ticket ID
+        async function searchByTicketId(ticketId) {
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+
+                // Clear the table first
+                const tbody = document.getElementById('complaintTable');
+                tbody.innerHTML = '';
+
+                // Show loading
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('noMore').style.display = 'none';
+
+                const numericTicketId = parseInt(ticketId, 10);
+                if (isNaN(numericTicketId)) {
+                    showNotification('Ticket ID must be a number.', 'error');
+                    return;
+                }
+
+                // Search for the specific complaint by ticketId field
+                const snapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('ticketId', '==', numericTicketId)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    const complaint = doc.data();
+
+                    // Format closed date for display
+                    const closedDateDisplay = formatClosedDate(complaint.closedAt);
+
+                    // Get agent name from the global map
+                    const agentName = agentNamesMap[complaint.agentId] || 'N/A';
+
+                    // Extract time from createdAt
+                    const complaintTime = formatTimeFromCreatedAt(complaint.createdAt);
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="text-align: center; font-weight: bold; color: #666;">1</td>
+                        <td>${complaint.customerName || ''}</td>
+                        <td>${complaint.phoneNumber || ''}</td>
+                        <td>${complaint.dealer || ''}</td>
+                        <td>${complaint.brand || ''}</td>
+                        <td>${complaint.category || ''}</td>
+                        <td>${agentName}</td>
+                        <td><span class="priority-badge priority-${complaint.priority?.toLowerCase() || 'low'}">${complaint.priority || 'Low'}</span></td>
+                        <td><span class="status-badge status-${complaint.status?.toLowerCase() || 'open'}">${complaint.status || 'Open'}</span></td>
+                        <td>
+                            <div class="date-time-cell">
+                                <div>${complaint.complaintDate || ''}</div>
+                                ${complaintTime ? `<span class="time-badge">🕐 ${complaintTime}</span>` : ''}
+                            </div>
+                        </td>
+
+                        <td>
+                            <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
+                            <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                    showNotification(`Found complaint with Ticket ID: ${numericTicketId}`);
+                } else {
+                    showNotification('Complaint with this Ticket ID not found.', 'error');
+                }
+            } catch (error) {
+                console.error('Error searching by Ticket ID:', error);
                 showNotification('Error searching for complaint. Please try again.', 'error');
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -1510,8 +1619,9 @@
                 // Show status field when editing
                 document.getElementById('statusFieldGroup').style.display = 'block';
 
-                // Store the document ID for update
+                // Store the document ID and existing ticket ID (if any) for update
                 document.getElementById('complaintForm').dataset.editId = docId;
+                document.getElementById('complaintForm').dataset.ticketId = complaint.ticketId || '';
                 
                 // Change button text
                 document.getElementById('submitBtn').textContent = 'Update Complaint';
@@ -1683,6 +1793,37 @@
             const phoneSuffix = phoneNumber.slice(-4);
 
             return `${day}${month}${year}${brandPrefix}${phoneSuffix}`;
+        }
+
+        // Get next Ticket ID from auto-increment document
+        async function getNextTicketId(companyCode) {
+            const autoDocRef = db.collection('complaints')
+                .doc('cmplts')
+                .collection(companyCode)
+                .doc('complaints')
+                .collection('complaints-coll')
+                .doc('auto-increment');
+
+            return db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(autoDocRef);
+                let newTicketId;
+
+                if (!doc.exists) {
+                    // Initialize with 1001 if document does not exist
+                    newTicketId = 1001;
+                } else {
+                    const data = doc.data() || {};
+                    const lastTicketId = typeof data.lastTicketId === 'number' ? data.lastTicketId : null;
+                    if (lastTicketId === null) {
+                        newTicketId = 1001;
+                    } else {
+                        newTicketId = lastTicketId + 1;
+                    }
+                }
+
+                transaction.set(autoDocRef, { lastTicketId: newTicketId }, { merge: true });
+                return newTicketId;
+            });
         }
 
         // Show notification function
@@ -2109,6 +2250,7 @@
             const companyCode = localStorage.getItem('companyCode');
             const userId = localStorage.getItem('userId');
             const editId = this.dataset.editId;
+            let existingTicketId = this.dataset.ticketId;
             const submitBtn = document.getElementById('submitBtn');
             
             // Disable submit button to prevent multiple submissions
@@ -2149,6 +2291,31 @@
                 }
             }
 
+            // Ensure we have a Ticket ID before saving
+            let ticketId;
+            try {
+                if (editId && existingTicketId) {
+                    // Use existing Ticket ID when editing if already present
+                    ticketId = parseInt(existingTicketId, 10);
+                } else {
+                    // Get next Ticket ID from auto-increment doc
+                    ticketId = await getNextTicketId(companyCode);
+                }
+            } catch (ticketError) {
+                console.error('Error generating Ticket ID:', ticketError);
+                showNotification('Error generating Ticket ID. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                return;
+            }
+
+            if (!ticketId) {
+                showNotification('Ticket ID is missing. Cannot save complaint.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                return;
+            }
+
             const complaintData = {
                 customerName: document.getElementById('customerName').value,
                 complaintDate: document.getElementById('complaintDate').value,
@@ -2170,6 +2337,7 @@
                 agentTelegramId: document.getElementById('agentTelegramId').value,
                 jobDate: document.getElementById('jobDate').value,
                 jobNumber: jobNumber,
+                ticketId: ticketId,
                 reason: document.getElementById('reason').value,
                 companyCode: companyCode,
                 updatedAt: new Date()
@@ -2195,7 +2363,7 @@
                         .collection('complaints-coll')
                         .doc(editId)
                         .update(complaintData);
-                    showNotification('Complaint updated successfully!');
+                    showNotification(`Complaint updated successfully! Ticket ID: ${ticketId}`);
                     
                     // Send Telegram notification for update
                     await sendTelegramNotification(complaintData, true);
@@ -2232,7 +2400,7 @@
                         .doc('complaints')
                         .collection('complaints-coll')
                         .add(complaintData);
-                    showNotification('Complaint submitted successfully!');
+                    showNotification(`Complaint submitted successfully! Ticket ID: ${ticketId}`);
                     
                     // Send Telegram notification for new complaint
                     await sendTelegramNotification(complaintData, false);
