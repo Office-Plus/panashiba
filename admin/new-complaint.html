@@ -264,6 +264,10 @@
             color: #f44336;
         }
 
+        .pdf-btn {
+            color: #2196F3;
+        }
+
                  /* Search filters */
          .search-filters {
              display: grid;
@@ -536,7 +540,7 @@
                         </div>
                         <div class="form-group">
                             <label for="phoneNumber">Phone Number <span class="required">*</span></label>
-                            <input type="tel" id="phoneNumber" required>
+                            <input type="tel" id="phoneNumber" required maxlength="10" pattern="[0-9]{10}" title="Please enter exactly 10 digits">
                         </div>
                         <div class="form-group">
                             <label for="alternateNumber">Alternate Number</label>
@@ -765,6 +769,9 @@
     
     <!-- Add XLSX library for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Add jsPDF library for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <!-- Version Management -->
     <script src="menu.js"></script>
@@ -1097,6 +1104,14 @@
             try {
                 const companyCode = localStorage.getItem('companyCode');
                 
+                // Trim the search input to handle trailing spaces
+                const trimmedJobNumber = jobNumber.trim();
+                
+                if (!trimmedJobNumber) {
+                    showNotification('Please enter a valid job number.', 'error');
+                    return;
+                }
+                
                 // Clear the table first
                 const tbody = document.getElementById('complaintTable');
                 tbody.innerHTML = '';
@@ -1106,17 +1121,30 @@
                 document.getElementById('noMore').style.display = 'none';
 
                 // Search for the specific complaint by jobNumber field
+                // Use range query to handle trailing spaces in old records
+                // This will match both "ABC123" and "ABC123 " (with trailing space)
                 const snapshot = await db.collection('complaints')
                     .doc('cmplts')
                     .collection(companyCode)
                     .doc('complaints')
                     .collection('complaints-coll')
                     .where('companyCode', '==', companyCode)
-                    .where('jobNumber', '==', jobNumber)
+                    .where('jobNumber', '>=', trimmedJobNumber)
+                    .where('jobNumber', '<=', trimmedJobNumber + '\uf8ff')
                     .get();
 
-                if (!snapshot.empty) {
-                    const doc = snapshot.docs[0];
+                // Filter results client-side to match exactly (trimmed)
+                let matchingDoc = null;
+                snapshot.docs.forEach(doc => {
+                    const complaint = doc.data();
+                    const storedJobNumber = (complaint.jobNumber || '').trim();
+                    if (storedJobNumber === trimmedJobNumber) {
+                        matchingDoc = doc;
+                    }
+                });
+
+                if (matchingDoc) {
+                    const doc = matchingDoc;
                     const complaint = doc.data();
                     
                     // Format closed date for display
@@ -1149,11 +1177,12 @@
                         
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
+                            <button class="action-btn pdf-btn" onclick="generatePDF('${doc.id}')" title="Generate PDF">📄</button>
                             <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
-                    showNotification(`Found complaint with Job Number: ${jobNumber}`);
+                    showNotification(`Found complaint with Job Number: ${trimmedJobNumber}`);
                 } else {
                     showNotification('Complaint with this Job Number not found.', 'error');
                 }
@@ -1228,6 +1257,7 @@
 
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
+                            <button class="action-btn pdf-btn" onclick="generatePDF('${doc.id}')" title="Generate PDF">📄</button>
                             <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
                         </td>
                     `;
@@ -1554,6 +1584,7 @@
                         
                         <td>
                             <button class="action-btn edit-btn" onclick="editComplaint('${doc.id}')" title="Edit">✏️</button>
+                            <button class="action-btn pdf-btn" onclick="generatePDF('${doc.id}')" title="Generate PDF">📄</button>
                             <button class="action-btn delete-btn" onclick="deleteComplaint('${doc.id}')" title="Delete" style="display: none;">🗑️</button>
                         </td>
                     `;
@@ -1616,16 +1647,17 @@
                 document.getElementById('agent').value = complaint.agentId || '';
                 document.getElementById('agentTelegramId').value = complaint.agentTelegramId || '';
                 document.getElementById('jobDate').value = complaint.jobDate || '';
-                document.getElementById('jobNumber').value = complaint.jobNumber || '';
+                document.getElementById('jobNumber').value = (complaint.jobNumber || '').trim();
                 document.getElementById('reason').value = complaint.reason || '';
                 document.getElementById('status').value = complaint.status || 'Open';
 
                 // Show status field when editing
                 document.getElementById('statusFieldGroup').style.display = 'block';
 
-                // Store the document ID and existing ticket ID (if any) for update
+                // Store the document ID, existing ticket ID, and original job number for update
                 document.getElementById('complaintForm').dataset.editId = docId;
                 document.getElementById('complaintForm').dataset.ticketId = complaint.ticketId || '';
+                document.getElementById('complaintForm').dataset.originalJobNumber = (complaint.jobNumber || '').trim();
                 
                 // Change button text
                 document.getElementById('submitBtn').textContent = 'Update Complaint';
@@ -1660,6 +1692,218 @@
             } catch (error) {
                 console.error('Error deleting complaint:', error);
                 showNotification('Error deleting complaint. Please try again.', 'error');
+            }
+        }
+
+        // Generate PDF report
+        async function generatePDF(docId) {
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+
+                // Fetch complaint data
+                const doc = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .doc(docId)
+                    .get();
+
+                if (!doc.exists) {
+                    showNotification('Complaint not found.', 'error');
+                    return;
+                }
+
+                const complaint = doc.data();
+                
+                // Check if jsPDF is loaded
+                if (typeof window.jspdf === 'undefined') {
+                    showNotification('PDF library not loaded. Please refresh the page and try again.', 'error');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                
+                // Create PDF in landscape orientation (A4 landscape: 297mm x 210mm)
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // Set font
+                pdf.setFont('helvetica');
+                
+                // Page dimensions for landscape
+                const pageWidth = 297; // Landscape width
+                const pageHeight = 210; // Landscape height
+                const leftMargin = 15;
+                const rightMargin = 150; // Start of column 2
+                const lineHeight = 7;
+                
+                // Heading at top center
+                pdf.setFontSize(18);
+                pdf.setFont('helvetica', 'bold');
+                const headingText = 'Distributor / Dealer visit';
+                const headingWidth = pdf.getTextWidth(headingText);
+                pdf.text(headingText, (pageWidth - headingWidth) / 2, 20);
+
+                // Reset font
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(11);
+
+                // Column 1 (left side)
+                let yPos = 35;
+                
+                // Column 1 - Row 1: Name of Dealer
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Name of Dealer:', leftMargin, yPos);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(complaint.dealer || '-', leftMargin + 45, yPos);
+                
+                // Column 1 - Row 2: City
+                yPos += lineHeight;
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('City:', leftMargin, yPos);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text('-', leftMargin + 45, yPos);
+                
+                // Column 1 - Row 3: Phone no
+                yPos += lineHeight;
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Phone no:', leftMargin, yPos);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(complaint.phoneNumber || '-', leftMargin + 45, yPos);
+
+                // Column 2 (right side)
+                yPos = 35;
+                
+                // Column 2 - Row 1: Customer name
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(complaint.customerName || '-', rightMargin, yPos);
+                
+                // Column 2 - Row 2: Complaint date and time
+                yPos += lineHeight;
+                let complaintDateTime = complaint.complaintDate || '';
+                if (complaint.createdAt) {
+                    const complaintTime = formatTimeFromCreatedAt(complaint.createdAt);
+                    if (complaintTime) {
+                        complaintDateTime += ' ' + complaintTime;
+                    }
+                }
+                pdf.text(complaintDateTime || '-', rightMargin, yPos);
+
+                // Table below
+                yPos = 60; // Start table below the columns
+                const tableTop = yPos;
+                const tableLeft = leftMargin;
+                const tableWidth = pageWidth - (leftMargin * 2) - 10; // Leave some right margin
+                const colWidth = tableWidth / 5; // 5 columns
+                const rowHeight = 8;
+
+                // Table headers
+                pdf.setFont('helvetica', 'bold');
+                pdf.setFontSize(10);
+                const headers = ['Complaint No.', 'Model', 'Description', 'Customer Name', 'Remarks'];
+                headers.forEach((header, index) => {
+                    pdf.text(header, tableLeft + (index * colWidth) + 3, yPos);
+                });
+
+                // Draw header line
+                yPos += 5;
+                pdf.setLineWidth(0.5);
+                pdf.line(tableLeft, yPos, tableLeft + tableWidth, yPos);
+
+                // Table data
+                yPos += rowHeight;
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(9);
+                
+                // Wrap text function - improved for landscape
+                const wrapText = (text, maxWidth) => {
+                    if (!text) return '-';
+                    const words = text.toString().split(' ');
+                    const lines = [];
+                    let currentLine = '';
+                    
+                    words.forEach(word => {
+                        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                        const testWidth = pdf.getTextWidth(testLine);
+                        if (testWidth > maxWidth && currentLine) {
+                            lines.push(currentLine);
+                            currentLine = word;
+                        } else {
+                            currentLine = testLine;
+                        }
+                    });
+                    if (currentLine) {
+                        lines.push(currentLine);
+                    }
+                    return lines.length > 0 ? lines : ['-'];
+                };
+
+                // Get data
+                const complaintNo = complaint.jobNumber || '-';
+                const model = complaint.brand || '-';
+                const description = complaint.description || complaint.reason || '-';
+                const customerName = complaint.customerName || '-';
+                const remarks = complaint.reason || '-';
+
+                // Prepare data rows with text wrapping - adjusted column widths for landscape
+                const dataRows = [
+                    wrapText(complaintNo, colWidth - 6),
+                    wrapText(model, colWidth - 6),
+                    wrapText(description, colWidth - 6),
+                    wrapText(customerName, colWidth - 6),
+                    wrapText(remarks, colWidth - 6)
+                ];
+
+                // Find maximum number of lines needed
+                const maxLines = Math.max(...dataRows.map(row => row.length));
+
+                // Draw table cells
+                for (let line = 0; line < maxLines; line++) {
+                    headers.forEach((header, colIndex) => {
+                        const cellText = dataRows[colIndex][line] || '';
+                        pdf.text(cellText, tableLeft + (colIndex * colWidth) + 3, yPos);
+                    });
+                    yPos += rowHeight;
+                    
+                    // Draw horizontal line after each row
+                    if (line < maxLines - 1) {
+                        pdf.setLineWidth(0.1);
+                        pdf.line(tableLeft, yPos - 2, tableLeft + tableWidth, yPos - 2);
+                    }
+                }
+
+                // Draw vertical lines
+                pdf.setLineWidth(0.1);
+                for (let i = 0; i <= 5; i++) {
+                    const xPos = tableLeft + (i * colWidth);
+                    pdf.line(xPos, tableTop + 3, xPos, yPos - rowHeight);
+                }
+
+                // Draw bottom border
+                pdf.setLineWidth(0.5);
+                pdf.line(tableLeft, yPos - 2, tableLeft + tableWidth, yPos - 2);
+
+                // Customer signature at bottom right
+                const signatureY = pageHeight - 20; // 20mm from bottom
+                const signatureX = pageWidth - 100; // Right side with some margin
+                pdf.setFont('helvetica', 'normal');
+                pdf.setFontSize(10);
+                pdf.text('Customer signature: __________________________', signatureX, signatureY);
+
+                // Generate filename
+                const filename = `Complaint_${complaint.jobNumber || complaint.ticketId || docId}.pdf`;
+
+                // Save PDF
+                pdf.save(filename);
+                showNotification('PDF generated successfully!');
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showNotification('Error generating PDF. Please try again.', 'error');
             }
         }
 
@@ -1781,8 +2025,8 @@
         // Generate job number
         function generateJobNumber() {
             const jobDate = document.getElementById('jobDate').value;
-            const brand = document.getElementById('brand').value;
-            const phoneNumber = document.getElementById('phoneNumber').value;
+            const brand = document.getElementById('brand').value.trim();
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
 
             if (!jobDate || !brand || !phoneNumber) {
                 return '';
@@ -1796,7 +2040,8 @@
             const brandPrefix = brand.substring(0, 3).toUpperCase();
             const phoneSuffix = phoneNumber.slice(-4);
 
-            return `${day}${month}${year}${brandPrefix}${phoneSuffix}`;
+            // Trim the final result to ensure no trailing spaces
+            return `${day}${month}${year}${brandPrefix}${phoneSuffix}`.trim();
         }
 
         // Get next Ticket ID from auto-increment document
@@ -1993,18 +2238,53 @@
         });
 
         document.getElementById('jobDate').addEventListener('change', function() {
-            const jobNumber = generateJobNumber();
-            document.getElementById('jobNumber').value = jobNumber;
+            // Only regenerate job number if not in edit mode
+            const editId = document.getElementById('complaintForm').dataset.editId;
+            if (!editId) {
+                const jobNumber = generateJobNumber();
+                document.getElementById('jobNumber').value = jobNumber;
+            }
         });
 
         document.getElementById('brand').addEventListener('change', function() {
-            const jobNumber = generateJobNumber();
-            document.getElementById('jobNumber').value = jobNumber;
+            // Only regenerate job number if not in edit mode
+            const editId = document.getElementById('complaintForm').dataset.editId;
+            if (!editId) {
+                const jobNumber = generateJobNumber();
+                document.getElementById('jobNumber').value = jobNumber;
+            }
         });
 
         document.getElementById('phoneNumber').addEventListener('input', function() {
-            const jobNumber = generateJobNumber();
-            document.getElementById('jobNumber').value = jobNumber;
+            // Remove any non-numeric characters
+            let value = this.value.replace(/\D/g, '');
+            
+            // Limit to 10 digits
+            if (value.length > 10) {
+                value = value.slice(0, 10);
+            }
+            
+            // Update the input value
+            this.value = value;
+            
+            // Only regenerate job number if not in edit mode
+            const editId = document.getElementById('complaintForm').dataset.editId;
+            if (!editId) {
+                const jobNumber = generateJobNumber();
+                document.getElementById('jobNumber').value = jobNumber;
+            }
+        });
+        
+        // Add paste event listener to handle pasted content
+        document.getElementById('phoneNumber').addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+            // Remove non-numeric characters and limit to 10 digits
+            let value = pastedText.replace(/\D/g, '').slice(0, 10);
+            this.value = value;
+            
+            // Trigger input event to regenerate job number if needed
+            this.dispatchEvent(new Event('input'));
         });
 
         // Reset form function
@@ -2022,9 +2302,10 @@
             document.getElementById('statusFieldGroup').style.display = 'none';
             document.getElementById('status').value = 'Open';
             
-            // Reset button text and remove edit ID
+            // Reset button text and remove edit ID and original job number
             document.getElementById('submitBtn').textContent = 'Submit Complaint';
             delete document.getElementById('complaintForm').dataset.editId;
+            delete document.getElementById('complaintForm').dataset.originalJobNumber;
         }
 
         // Download Excel data function
@@ -2265,15 +2546,37 @@
             console.log('Form Mode:', editId ? 'EDITING EXISTING COMPLAINT' : 'CREATING NEW COMPLAINT');
             console.log('Edit ID:', editId || 'None (new complaint)');
 
-            // Ensure job number is generated before submission
-            let jobNumber = document.getElementById('jobNumber').value;
-            if (!jobNumber) {
-                jobNumber = generateJobNumber();
-                document.getElementById('jobNumber').value = jobNumber;
-                console.log('Auto-generated job number on submit:', jobNumber);
-            } else {
-                console.log('Job number already exists:', jobNumber);
+            // Validate phone number - must be exactly 10 digits
+            const phoneNumber = document.getElementById('phoneNumber').value.trim();
+            if (!phoneNumber || phoneNumber.length !== 10 || !/^\d{10}$/.test(phoneNumber)) {
+                showNotification('Phone number must be exactly 10 digits.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                document.getElementById('phoneNumber').focus();
+                return;
             }
+
+            // Handle job number - preserve original when editing, generate new when creating
+            let jobNumber;
+            if (editId) {
+                // When editing, use the original job number (don't regenerate)
+                const originalJobNumber = this.dataset.originalJobNumber;
+                jobNumber = originalJobNumber || document.getElementById('jobNumber').value.trim();
+                console.log('Editing mode - using original job number:', jobNumber);
+            } else {
+                // When creating new, generate job number if not exists
+                jobNumber = document.getElementById('jobNumber').value.trim();
+                if (!jobNumber) {
+                    jobNumber = generateJobNumber();
+                    document.getElementById('jobNumber').value = jobNumber;
+                    console.log('Auto-generated job number on submit:', jobNumber);
+                } else {
+                    console.log('Job number already exists:', jobNumber);
+                }
+            }
+            
+            // Trim job number to ensure no trailing spaces
+            jobNumber = jobNumber.trim();
 
             // Validate required fields for job number generation
             if (!jobNumber) {
@@ -2325,7 +2628,7 @@
                 complaintDate: document.getElementById('complaintDate').value,
                 description: document.getElementById('description').value,
                 dealer: document.getElementById('dealer').value,
-                phoneNumber: document.getElementById('phoneNumber').value.trim(),
+                phoneNumber: phoneNumber, // Use validated phone number (already trimmed and validated)
                 alternateNumber: document.getElementById('alternateNumber').value.trim(),
                 email: document.getElementById('email').value,
                 address: document.getElementById('address').value,
@@ -2340,7 +2643,7 @@
                 agentId: document.getElementById('agent').value,
                 agentTelegramId: document.getElementById('agentTelegramId').value,
                 jobDate: document.getElementById('jobDate').value,
-                jobNumber: jobNumber,
+                jobNumber: jobNumber.trim(), // Ensure no trailing spaces
                 ticketId: ticketId,
                 reason: document.getElementById('reason').value,
                 companyCode: companyCode,

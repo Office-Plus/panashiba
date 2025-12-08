@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Records - Clean Job Numbers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 900;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #2196F3;
+        }
+
+        .welcome-message {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 70px auto 0;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+
+        .btn-primary {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1976D2;
+        }
+
+        .btn-primary:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .notification.success {
+            background-color: rgba(76, 175, 80, 0.9);
+        }
+
+        .notification.error {
+            background-color: rgba(244, 67, 54, 0.9);
+        }
+
+        .notification.info {
+            background-color: rgba(33, 150, 243, 0.9);
+        }
+
+        /* Table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .no-changes {
+            color: #666;
+            font-style: italic;
+        }
+
+        .changed {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="menuContainer"></div>
+
+    <div class="header">
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="welcome-message" id="welcomeMessage"></div>
+    </div>
+
+    <div class="container">
+        <h1>Update Records - Clean Job Numbers</h1>
+        
+        <div class="form-container">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <button type="button" class="btn btn-primary" id="updateBtn">Update Records (Press Enter)</button>
+            </div>
+        </div>
+
+        <div id="statsContainer" style="display: none;">
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>Total Records Found</h3>
+                    <div class="value" id="totalRecords">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Records Updated</h3>
+                    <div class="value" id="updatedRecords">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Records Unchanged</h3>
+                    <div class="value" id="unchangedRecords">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsTable" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ticket ID</th>
+                        <th>Customer Name</th>
+                        <th>Job Date</th>
+                        <th>Before Job Number</th>
+                        <th>After Job Number</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody"></tbody>
+            </table>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">Processing records...</div>
+    </div>
+
+    <div id="notification" class="notification">
+        <span id="notificationMessage"></span>
+    </div>
+
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    
+    <!-- Version Management -->
+    <script src="menu.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Load the menu with cache busting
+        function loadMenu() {
+            const cacheBuster = window.getCacheBuster ? window.getCacheBuster() : '?v=1.0.3&t=' + Date.now();
+            fetch('menu.html' + cacheBuster)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('menuContainer').innerHTML = html;
+                });
+        }
+
+        // Clean job number - remove trailing spaces and non-alphanumeric characters
+        function cleanJobNumber(jobNumber) {
+            if (!jobNumber || typeof jobNumber !== 'string') {
+                return '';
+            }
+            // Remove all characters except letters and numbers
+            return jobNumber.replace(/[^a-zA-Z0-9]/g, '');
+        }
+
+        // Show notification function
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            notification.className = `notification ${type}`;
+            messageEl.textContent = message;
+            
+            // Show notification
+            notification.classList.add('show');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Toggle menu function (fallback)
+        window.toggleMenu = function() {
+            const menu = document.querySelector('.side-menu');
+            if (menu) {
+                menu.classList.toggle('active');
+            }
+        };
+
+        // Update records function
+        async function updateRecords() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                showNotification('Please select both start and end dates.', 'error');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                showNotification('Start date cannot be after end date.', 'error');
+                return;
+            }
+
+            const companyCode = localStorage.getItem('companyCode');
+            
+            if (!companyCode || companyCode === 'null' || companyCode.trim() === '') {
+                showNotification('Company Code is missing! Please set it in Settings.', 'error');
+                return;
+            }
+
+            const updateBtn = document.getElementById('updateBtn');
+            const loadingEl = document.getElementById('loading');
+            const statsContainer = document.getElementById('statsContainer');
+            const resultsTable = document.getElementById('resultsTable');
+            const resultsTableBody = document.getElementById('resultsTableBody');
+
+            // Disable button and show loading
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Processing...';
+            loadingEl.style.display = 'block';
+            statsContainer.style.display = 'none';
+            resultsTable.style.display = 'none';
+            resultsTableBody.innerHTML = '';
+
+            try {
+                // Fetch all records within date range
+                const query = db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('jobDate', '>=', startDate)
+                    .where('jobDate', '<=', endDate)
+                    .orderBy('jobDate', 'asc');
+
+                const snapshot = await query.get();
+
+                if (snapshot.empty) {
+                    showNotification('No records found in the selected date range.', 'info');
+                    updateBtn.disabled = false;
+                    updateBtn.textContent = 'Update Records (Press Enter)';
+                    loadingEl.style.display = 'none';
+                    return;
+                }
+
+                let totalRecords = snapshot.size;
+                let updatedCount = 0;
+                let unchangedCount = 0;
+                const updateResults = [];
+
+                // Process each record
+                for (const doc of snapshot.docs) {
+                    const data = doc.data();
+                    const originalJobNumber = data.jobNumber || '';
+                    const cleanedJobNumber = cleanJobNumber(originalJobNumber);
+
+                    // Only update if job number changed
+                    if (originalJobNumber !== cleanedJobNumber) {
+                        try {
+                            await doc.ref.update({
+                                jobNumber: cleanedJobNumber
+                            });
+                            updatedCount++;
+                            updateResults.push({
+                                ticketId: data.ticketId || 'N/A',
+                                customerName: data.customerName || 'N/A',
+                                jobDate: data.jobDate || 'N/A',
+                                before: originalJobNumber,
+                                after: cleanedJobNumber,
+                                status: 'Updated'
+                            });
+                        } catch (error) {
+                            console.error(`Error updating document ${doc.id}:`, error);
+                            updateResults.push({
+                                ticketId: data.ticketId || 'N/A',
+                                customerName: data.customerName || 'N/A',
+                                jobDate: data.jobDate || 'N/A',
+                                before: originalJobNumber,
+                                after: cleanedJobNumber,
+                                status: 'Error: ' + error.message
+                            });
+                        }
+                    } else {
+                        unchangedCount++;
+                        updateResults.push({
+                            ticketId: data.ticketId || 'N/A',
+                            customerName: data.customerName || 'N/A',
+                            jobDate: data.jobDate || 'N/A',
+                            before: originalJobNumber,
+                            after: cleanedJobNumber,
+                            status: 'No Change'
+                        });
+                    }
+                }
+
+                // Update stats
+                document.getElementById('totalRecords').textContent = totalRecords;
+                document.getElementById('updatedRecords').textContent = updatedCount;
+                document.getElementById('unchangedRecords').textContent = unchangedCount;
+
+                // Display results in table
+                resultsTableBody.innerHTML = '';
+                updateResults.forEach((result, index) => {
+                    const tr = document.createElement('tr');
+                    const statusClass = result.status === 'Updated' ? 'changed' : (result.status === 'No Change' ? 'no-changes' : '');
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${result.ticketId}</td>
+                        <td>${result.customerName}</td>
+                        <td>${result.jobDate}</td>
+                        <td>${result.before || '(empty)'}</td>
+                        <td>${result.after || '(empty)'}</td>
+                        <td class="${statusClass}">${result.status}</td>
+                    `;
+                    resultsTableBody.appendChild(tr);
+                });
+
+                // Show results
+                statsContainer.style.display = 'grid';
+                resultsTable.style.display = 'block';
+                
+                showNotification(`Processed ${totalRecords} records. Updated: ${updatedCount}, Unchanged: ${unchangedCount}`, 'success');
+
+            } catch (error) {
+                console.error('Error updating records:', error);
+                showNotification('Error updating records: ' + error.message, 'error');
+            } finally {
+                updateBtn.disabled = false;
+                updateBtn.textContent = 'Update Records (Press Enter)';
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        // Load data when the page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in
+            const userEmail = localStorage.getItem('userEmail');
+            const userId = localStorage.getItem('userId');
+            const companyCode = localStorage.getItem('companyCode');
+            
+            console.log('=== PAGE LOAD - Checking credentials ===');
+            console.log('User Email:', userEmail);
+            console.log('User ID:', userId);
+            console.log('Company Code:', companyCode);
+            
+            if (!userEmail || !userId) {
+                console.log('❌ Missing credentials, redirecting to login');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            if (!companyCode || companyCode === 'null') {
+                console.error('❌ Company Code is missing!');
+                const goToSettings = confirm(
+                    'Company Code is missing!\n\n' +
+                    'You need to set your company code before you can use this feature.\n\n' +
+                    'Click OK to go to Settings and set your company code, or Cancel to stay on this page.'
+                );
+                if (goToSettings) {
+                    window.location.href = 'settings.html?highlight=companyCode';
+                    return;
+                }
+            }
+            
+            // Load menu first
+            loadMenu();
+            
+            // Set welcome message
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}`;
+            
+            // Add event listeners
+            document.getElementById('updateBtn').addEventListener('click', updateRecords);
+            
+            // Add Enter key support for date inputs
+            document.getElementById('startDate').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updateRecords();
+                }
+            });
+            
+            document.getElementById('endDate').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    updateRecords();
+                }
+            });
+            
+            // Check for updates
+            if (window.VersionManager) {
+                VersionManager.checkForUpdates();
+            }
+        });
+    </script>
+</body>
+</html>
+
