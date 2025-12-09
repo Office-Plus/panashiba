@@ -1774,6 +1774,13 @@
                 pdf.text('Phone no:', leftMargin, yPos);
                 pdf.setFont('helvetica', 'normal');
                 pdf.text(complaint.phoneNumber || '-', leftMargin + 45, yPos);
+                
+                // Column 1 - Row 4: Ticket ID
+                yPos += lineHeight;
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Ticket ID:', leftMargin, yPos);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(complaint.ticketId ? String(complaint.ticketId) : '-', leftMargin + 45, yPos);
 
                 // Column 2 (right side)
                 yPos = 35;
@@ -1792,9 +1799,24 @@
                     }
                 }
                 pdf.text(complaintDateTime || '-', rightMargin, yPos);
+                
+                // Column 2 - Row 3: Address
+                yPos += lineHeight;
+                pdf.setFont('helvetica', 'normal');
+                const address = complaint.address || '-';
+                // Wrap address if too long
+                const addressLines = pdf.splitTextToSize(address, 80); // Max width 80mm
+                const addressHeight = addressLines.length * lineHeight * 0.8;
+                addressLines.forEach((line, index) => {
+                    pdf.text(line, rightMargin, yPos + (index * lineHeight * 0.8));
+                });
 
-                // Table below
-                yPos = 60; // Start table below the columns
+                // Table below - adjust position based on address height and column 1 height (4 rows)
+                // Column 1 has 4 rows, Column 2 has 3 rows (but address may wrap)
+                const column1Height = 35 + (4 * lineHeight); // Start at 35, 4 rows
+                const column2Height = 35 + (2 * lineHeight) + addressHeight; // Start at 35, 2 rows + address
+                const maxColumnHeight = Math.max(column1Height, column2Height);
+                yPos = maxColumnHeight + 10; // Add 10mm spacing before table
                 const tableTop = yPos;
                 const tableLeft = leftMargin;
                 const tableWidth = pageWidth - (leftMargin * 2) - 10; // Leave some right margin
@@ -2433,7 +2455,7 @@
                 // Prepare data for Excel
                 const excelData = [];
                 const headers = [
-                    'Customer Name', 'Phone Number', 'Alternate Number', 'Email', 'Address', 'Pin Code',
+                    'Ticket ID', 'Customer Name', 'Phone Number', 'Alternate Number', 'Email', 'Address', 'Pin Code',
                     'Dealer', 'Complaint Date', 'Description', 'Category', 'Purchase Date', 'Under Warranty',
                     'Brand', 'Item Serial Number', 'No. of Products', 'Priority', 'Agent', 'Job Date', 'Job Number', 'Reason', 'Status'
                 ];
@@ -2460,6 +2482,7 @@
                     const closedDateDisplay = formatClosedDate(complaint.closedAt);
                     
                     const row = [
+                        complaint.ticketId ? String(complaint.ticketId) : '',
                         complaint.customerName || '',
                         complaint.phoneNumber || '',
                         complaint.alternateNumber || '',
