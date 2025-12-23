@@ -271,7 +271,7 @@
                  /* Search filters */
          .search-filters {
              display: grid;
-             grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+             grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
              gap: 15px;
              margin-bottom: 20px;
              align-items: end;
@@ -371,14 +371,14 @@
 
          @media (min-width: 1025px) and (max-width: 1400px) {
              .search-filters {
-                 grid-template-columns: 1fr 1fr 1fr 1fr;
+                grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
                  gap: 12px;
              }
          }
 
          @media (min-width: 1401px) {
              .search-filters {
-                 grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+                grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
                  gap: 15px;
              }
          }
@@ -455,6 +455,125 @@
              display: flex;
              flex-direction: column;
              gap: 5px;
+         }
+
+        /* Existing complaints popup */
+        .existing-complaints-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+        }
+
+        .existing-complaints-overlay.visible {
+            display: flex;
+        }
+
+        .existing-complaints-modal {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            width: 90%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .existing-complaints-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #2196F3;
+            color: #fff;
+        }
+
+        .existing-complaints-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .existing-complaints-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .existing-complaints-actions button {
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .existing-complaints-actions button:hover {
+            background: rgba(255,255,255,0.35);
+        }
+
+        .existing-complaints-body {
+            padding: 10px 15px 15px 15px;
+            overflow: auto;
+            background: #fafafa;
+        }
+
+        .existing-complaints-body table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        .existing-complaints-body th,
+        .existing-complaints-body td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-size: 12px;
+        }
+
+        .existing-complaints-body th {
+            background: #f1f1f1;
+        }
+
+        .existing-complaints-overlay.minimized {
+            align-items: flex-end;
+            justify-content: flex-end;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        .existing-complaints-overlay.minimized .existing-complaints-modal {
+            width: 260px;
+            max-width: 260px;
+            max-height: none;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            pointer-events: auto;
+        }
+
+        .existing-complaints-overlay.minimized .existing-complaints-body {
+            display: none;
+        }
+
+         /* Search tip */
+         .search-tip {
+             margin-bottom: 10px;
+             font-size: 13px;
+             color: #555;
+             background: #e3f2fd;
+             border-left: 4px solid #2196F3;
+             padding: 8px 10px;
+             border-radius: 4px;
          }
 
          /* Search job number container and button */
@@ -597,6 +716,10 @@
 
                     <div class="form-row">
                         <div class="form-group">
+                            <label for="billNo">Bill No.</label>
+                            <input type="text" id="billNo" placeholder="Enter bill number">
+                        </div>
+                        <div class="form-group">
                             <label for="itemSerialNumber">Item Serial Number</label>
                             <input type="text" id="itemSerialNumber">
                         </div>
@@ -610,6 +733,13 @@
                                 <option value="Low" selected>Low</option>
                                 <option value="High">High</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productDetails">Product Details</label>
+                            <input type="text" id="productDetails" placeholder="Enter product details (model, specs, etc.)">
                         </div>
                     </div>
 
@@ -691,6 +821,7 @@
                  <select id="searchAgent">
                      <option value="">All Agents</option>
                  </select>
+                <input type="date" id="searchComplaintDate" placeholder="search by open cmp dt">
                 <select id="searchMonth">
                     <option value="">Complaints Registered in Month</option>
                     <option value="01">January</option>
@@ -732,6 +863,10 @@
                  </button>
              </div>
 
+            <div id="searchTip" class="search-tip">
+                Showing latest complaints. Use the filters above and click Search.
+            </div>
+
            <table>
                 <thead>
                     <tr>
@@ -760,6 +895,37 @@
     <div id="notification" class="notification">
         <i class="fas fa-check-circle"></i>
         <span id="notificationMessage"></span>
+    </div>
+
+    <!-- Existing complaints popup -->
+    <div id="existingComplaintsOverlay" class="existing-complaints-overlay">
+        <div class="existing-complaints-modal">
+            <div class="existing-complaints-header">
+                <div class="existing-complaints-title" id="existingComplaintsTitle">
+                    Possible duplicate complaints found
+                </div>
+                <div class="existing-complaints-actions">
+                    <button type="button" id="minimizeExistingComplaints" title="Minimize">▾</button>
+                    <button type="button" id="closeExistingComplaints" title="Close">✕</button>
+                </div>
+            </div>
+            <div class="existing-complaints-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Job No.</th>
+                            <th>Bill No.</th>
+                            <th>Phone Number</th>
+                            <th>Name</th>
+                            <th>Purchase Date</th>
+                            <th>Product Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="existingComplaintsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Add Firebase SDKs -->
@@ -811,6 +977,7 @@
             phoneNumber: '',
             brand: '',
             status: 'Open',
+            complaintDate: '',
             category: '',
             agent: '',
             month: '',
@@ -818,6 +985,167 @@
         };
         let agentNamesMap = {}; // Global map to store agent ID to agent name mapping
         let currentRowNumber = 0; // Global variable for row numbering
+
+        // Update the search tip text based on current filters / searches
+        function updateSearchTip(customText) {
+            const tipEl = document.getElementById('searchTip');
+            if (!tipEl) return;
+
+            if (customText) {
+                tipEl.textContent = customText;
+                return;
+            }
+
+            const parts = [];
+
+            // Status / closedMonth
+            if (currentFilters.closedMonth) {
+                parts.push(`closed complaints from ${currentFilters.closedMonth}`);
+            } else if (currentFilters.status === 'Open') {
+                parts.push('open complaints');
+            } else if (currentFilters.status === 'Closed') {
+                parts.push('closed complaints');
+            } else if (currentFilters.status === 'Cancelled') {
+                parts.push('cancelled complaints');
+            } else {
+                parts.push('all complaints');
+            }
+
+            // Complaint date (exact)
+            if (currentFilters.complaintDate) {
+                parts.push(`registered on ${currentFilters.complaintDate}`);
+            } else if (currentFilters.month) {
+                const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+                const monthIndex = parseInt(currentFilters.month, 10);
+                if (!isNaN(monthIndex) && monthIndex >= 1 && monthIndex <= 12) {
+                    parts.push(`registered in ${monthNames[monthIndex]}`);
+                }
+            }
+
+            // Phone filter
+            if (currentFilters.phoneNumber) {
+                parts.push(`with phone number starting with "${currentFilters.phoneNumber}"`);
+            }
+
+            // Brand / Category / Agent
+            if (currentFilters.brand) {
+                parts.push(`for brand "${currentFilters.brand}"`);
+            }
+
+            if (currentFilters.category) {
+                parts.push(`in category "${currentFilters.category}"`);
+            }
+
+            if (currentFilters.agent) {
+                const agentName = agentNamesMap[currentFilters.agent] || currentFilters.agent;
+                parts.push(`assigned to agent "${agentName}"`);
+            }
+
+            // Build final sentence
+            let text;
+            if (parts.length === 0) {
+                text = 'Showing latest complaints. Use the filters above and click Search.';
+            } else {
+                text = 'Showing ' + parts.join(', ') + '.';
+            }
+
+            tipEl.textContent = text;
+        }
+
+        // Find existing complaints with same phone number and/or bill number
+        async function findExistingComplaints(phoneNumber, billNo) {
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+                if (!companyCode) return [];
+
+                const baseRef = db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode);
+
+                const queries = [];
+                if (phoneNumber) {
+                    queries.push(baseRef.where('phoneNumber', '==', phoneNumber).get());
+                }
+                if (billNo) {
+                    queries.push(baseRef.where('billNo', '==', billNo).get());
+                }
+
+                if (queries.length === 0) return [];
+
+                const snapshots = await Promise.all(queries);
+                const seen = new Map();
+
+                snapshots.forEach(snapshot => {
+                    snapshot.forEach(doc => {
+                        if (!seen.has(doc.id)) {
+                            seen.set(doc.id, doc.data());
+                        }
+                    });
+                });
+
+                return Array.from(seen.entries()).map(([id, data]) => ({ id, ...data }));
+            } catch (err) {
+                console.error('Error finding existing complaints:', err);
+                return [];
+            }
+        }
+
+        // Show existing complaints popup
+        function showExistingComplaintsPopup(complaints, phoneNumber, billNo) {
+            const overlay = document.getElementById('existingComplaintsOverlay');
+            const titleEl = document.getElementById('existingComplaintsTitle');
+            const tbody = document.getElementById('existingComplaintsTableBody');
+
+            if (!overlay || !titleEl || !tbody) return;
+
+            // Build title text based on what matched
+            let titleText = '';
+            const byPhone = phoneNumber ? complaints.filter(c => (c.phoneNumber || '') === phoneNumber) : [];
+            const byBill = billNo ? complaints.filter(c => (c.billNo || '') === billNo) : [];
+
+            if (phoneNumber && billNo) {
+                if (byPhone.length && byBill.length) {
+                    titleText = `Found ${complaints.length} complaints with same phone number and/or bill number.`;
+                } else if (byPhone.length) {
+                    titleText = `Found ${byPhone.length} complaints with same phone number.`;
+                } else if (byBill.length) {
+                    titleText = `Found ${byBill.length} complaints with same bill number.`;
+                } else {
+                    titleText = `Found ${complaints.length} related complaints.`;
+                }
+            } else if (phoneNumber) {
+                titleText = `Found ${byPhone.length} complaints with same phone number.`;
+            } else if (billNo) {
+                titleText = `Found ${byBill.length} complaints with same bill number.`;
+            } else {
+                titleText = `Found ${complaints.length} related complaints.`;
+            }
+
+            titleEl.textContent = titleText;
+
+            // Fill table
+            tbody.innerHTML = '';
+            complaints.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${(c.jobNumber || '').toString().trim()}</td>
+                    <td>${c.billNo || ''}</td>
+                    <td>${c.phoneNumber || ''}</td>
+                    <td>${c.customerName || ''}</td>
+                    <td>${c.purchaseDate || ''}</td>
+                    <td>${c.productDetails || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            overlay.classList.remove('minimized');
+            overlay.classList.add('visible');
+        }
 
         // Load data when the page loads
         document.addEventListener('DOMContentLoaded', async function() {
@@ -899,6 +1227,7 @@
             
             if (tab === 'list') {
                 loadComplaints(true);
+                updateSearchTip();
             }
         }
 
@@ -958,6 +1287,7 @@
                  currentFilters.status = document.getElementById('searchStatus').value;
                  currentFilters.category = document.getElementById('searchCategory').value;
                  currentFilters.agent = document.getElementById('searchAgent').value;
+                 currentFilters.complaintDate = document.getElementById('searchComplaintDate').value;
                  currentFilters.month = document.getElementById('searchMonth').value;
                  currentFilters.closedMonth = document.getElementById('searchClosedMonth').value;
                  
@@ -969,6 +1299,7 @@
                  hasMore = true;
                  lastVisible = null;
                  console.log('Calling loadComplaints(true)...');
+                 updateSearchTip();
                  loadComplaints(true);
              });
 
@@ -992,6 +1323,7 @@
                   document.getElementById('searchStatus').value = 'Open';
                   document.getElementById('searchCategory').value = '';
                   document.getElementById('searchAgent').value = '';
+                  document.getElementById('searchComplaintDate').value = '';
                   document.getElementById('searchMonth').value = '';
                   document.getElementById('searchClosedMonth').value = '';
                   
@@ -1183,8 +1515,10 @@
                     `;
                     tbody.appendChild(tr);
                     showNotification(`Found complaint with Job Number: ${trimmedJobNumber}`);
+                    updateSearchTip(`Showing complaint with Job Number "${trimmedJobNumber}".`);
                 } else {
                     showNotification('Complaint with this Job Number not found.', 'error');
+                    updateSearchTip('No complaints found for the given Job Number.');
                 }
             } catch (error) {
                 console.error('Error searching by job number:', error);
@@ -1263,8 +1597,10 @@
                     `;
                     tbody.appendChild(tr);
                     showNotification(`Found complaint with Ticket ID: ${numericTicketId}`);
+                    updateSearchTip(`Showing complaint with Ticket ID "${numericTicketId}".`);
                 } else {
                     showNotification('Complaint with this Ticket ID not found.', 'error');
+                    updateSearchTip('No complaints found for the given Ticket ID.');
                 }
             } catch (error) {
                 console.error('Error searching by Ticket ID:', error);
@@ -1379,8 +1715,10 @@
                     query = query.where('agentId', '==', currentFilters.agent);
                 }
 
-                // Apply month filter if provided
-                if (currentFilters.month) {
+                // If an exact complaint date is selected, use that and ignore the month filter
+                if (currentFilters.complaintDate) {
+                    query = query.where('complaintDate', '==', currentFilters.complaintDate);
+                } else if (currentFilters.month) {
                     const currentYear = new Date().getFullYear();
                     const startDate = `${currentYear}-${currentFilters.month}-01`;
                     const endDate = `${currentYear}-${currentFilters.month}-31`;
@@ -1641,9 +1979,11 @@
                 document.getElementById('purchaseDate').value = complaint.purchaseDate || '';
                 document.getElementById('underWarranty').value = complaint.underWarranty || '';
                 document.getElementById('brand').value = complaint.brand || '';
+                document.getElementById('billNo').value = complaint.billNo || '';
                 document.getElementById('itemSerialNumber').value = complaint.itemSerialNumber || '';
                 document.getElementById('numberOfProducts').value = complaint.numberOfProducts || 1;
                 document.getElementById('priority').value = complaint.priority || 'Low';
+                document.getElementById('productDetails').value = complaint.productDetails || '';
                 document.getElementById('agent').value = complaint.agentId || '';
                 document.getElementById('agentTelegramId').value = complaint.agentTelegramId || '';
                 document.getElementById('jobDate').value = complaint.jobDate || '';
@@ -1724,19 +2064,19 @@
 
                 const { jsPDF } = window.jspdf;
                 
-                // Create PDF in landscape orientation (A4 landscape: 297mm x 210mm)
+                // Create PDF in landscape orientation (A5 landscape: half A4 size)
                 const pdf = new jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a4'
+                    format: 'a5'
                 });
 
                 // Set font
                 pdf.setFont('helvetica');
                 
-                // Page dimensions for landscape
-                const pageWidth = 297; // Landscape width
-                const pageHeight = 210; // Landscape height
+                // Page dimensions for A5 landscape
+                const pageWidth = 210; // A5 landscape width
+                const pageHeight = 148; // A5 landscape height
                 const leftMargin = 15;
                 const rightMargin = 150; // Start of column 2
                 const lineHeight = 7;
@@ -2309,6 +2649,29 @@
             this.dispatchEvent(new Event('input'));
         });
 
+        // Existing complaints popup controls
+        (function() {
+            const overlay = document.getElementById('existingComplaintsOverlay');
+            const closeBtn = document.getElementById('closeExistingComplaints');
+            const minimizeBtn = document.getElementById('minimizeExistingComplaints');
+
+            if (closeBtn && overlay) {
+                closeBtn.addEventListener('click', () => {
+                    overlay.classList.remove('visible', 'minimized');
+                });
+            }
+
+            if (minimizeBtn && overlay) {
+                minimizeBtn.addEventListener('click', () => {
+                    if (overlay.classList.contains('minimized')) {
+                        overlay.classList.remove('minimized');
+                    } else {
+                        overlay.classList.add('minimized');
+                    }
+                });
+            }
+        })();
+
         // Reset form function
         function resetForm() {
             document.getElementById('complaintForm').reset();
@@ -2385,8 +2748,10 @@
                     query = query.where('agentId', '==', currentFilters.agent);
                 }
 
-                // Apply month filter if provided
-                if (currentFilters.month) {
+                // If an exact complaint date is selected, use that and ignore the month filter
+                if (currentFilters.complaintDate) {
+                    query = query.where('complaintDate', '==', currentFilters.complaintDate);
+                } else if (currentFilters.month) {
                     const currentYear = new Date().getFullYear();
                     const startDate = `${currentYear}-${currentFilters.month}-01`;
                     const endDate = `${currentYear}-${currentFilters.month}-31`;
@@ -2457,7 +2822,8 @@
                 const headers = [
                     'Ticket ID', 'Customer Name', 'Phone Number', 'Alternate Number', 'Email', 'Address', 'Pin Code',
                     'Dealer', 'Complaint Date', 'Description', 'Category', 'Purchase Date', 'Under Warranty',
-                    'Brand', 'Item Serial Number', 'No. of Products', 'Priority', 'Agent', 'Job Date', 'Job Number', 'Reason', 'Status'
+                    'Brand', 'Bill No.', 'Item Serial Number', 'No. of Products', 'Priority', 'Product Details', 'Agent',
+                    'Job Date', 'Job Number', 'Reason', 'Status'
                 ];
                 excelData.push(headers);
 
@@ -2496,9 +2862,11 @@
                         complaint.purchaseDate || '',
                         complaint.underWarranty || '',
                         complaint.brand || '',
+                        complaint.billNo || '',
                         complaint.itemSerialNumber || '',
                         complaint.numberOfProducts || 1,
                         complaint.priority || 'Low',
+                        complaint.productDetails || '',
                         agentNames[complaint.agentId] || '',
                         complaint.jobDate || '',
                         complaint.jobNumber || '',
@@ -2577,6 +2945,19 @@
                 submitBtn.textContent = originalBtnText;
                 document.getElementById('phoneNumber').focus();
                 return;
+            }
+
+            // Before creating a new complaint, check for existing complaints with same phone or bill no
+            if (!editId) {
+                const billNo = document.getElementById('billNo').value.trim();
+                try {
+                    const existing = await findExistingComplaints(phoneNumber, billNo);
+                    if (existing.length > 0) {
+                        showExistingComplaintsPopup(existing, phoneNumber, billNo);
+                    }
+                } catch (dupError) {
+                    console.error('Error checking for existing complaints:', dupError);
+                }
             }
 
             // Handle job number - preserve original when editing, generate new when creating
@@ -2660,9 +3041,11 @@
                 purchaseDate: document.getElementById('purchaseDate').value,
                 underWarranty: document.getElementById('underWarranty').value,
                 brand: document.getElementById('brand').value,
+                billNo: document.getElementById('billNo').value.trim(),
                 itemSerialNumber: document.getElementById('itemSerialNumber').value,
                 numberOfProducts: parseInt(document.getElementById('numberOfProducts').value) || 1,
                 priority: document.getElementById('priority').value,
+                productDetails: document.getElementById('productDetails').value.trim(),
                 agentId: document.getElementById('agent').value,
                 agentTelegramId: document.getElementById('agentTelegramId').value,
                 jobDate: document.getElementById('jobDate').value,
