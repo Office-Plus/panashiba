@@ -2064,36 +2064,41 @@
 
                 const { jsPDF } = window.jspdf;
                 
-                // Create PDF in landscape orientation (A5 landscape: half A4 size)
+                // Create PDF in A4 PORTRAIT orientation with content in top half
+                // This ensures it prints at the top of A4 page (portrait), allowing second PDF on bottom half
+                // User can print 2 complaint slips per A4 page - just cut the page in half after printing
                 const pdf = new jsPDF({
-                    orientation: 'landscape',
+                    orientation: 'portrait',
                     unit: 'mm',
-                    format: 'a5'
+                    format: 'a4'
                 });
 
                 // Set font
                 pdf.setFont('helvetica');
                 
-                // Page dimensions for A5 landscape
-                const pageWidth = 210; // A5 landscape width
-                const pageHeight = 148; // A5 landscape height
+                // Page dimensions for A4 portrait (210mm wide × 297mm tall)
+                // Content will only use top half (~148mm) so it prints at top
+                const pageWidth = 210; // A4 portrait width
+                const pageHeight = 297; // A4 portrait height (full page)
+                const contentHeight = 148; // Top half of A4 portrait (half of 297mm)
                 const leftMargin = 15;
-                const rightMargin = 150; // Start of column 2
+                const rightMargin = 110; // Start of column 2 (adjusted for portrait width)
                 const lineHeight = 7;
+                const topMargin = 10; // Minimal top margin to position at top of page
                 
-                // Heading at top center
+                // Heading at top center (positioned at top of page)
                 pdf.setFontSize(18);
                 pdf.setFont('helvetica', 'bold');
                 const headingText = 'Distributor / Dealer visit';
                 const headingWidth = pdf.getTextWidth(headingText);
-                pdf.text(headingText, (pageWidth - headingWidth) / 2, 20);
+                pdf.text(headingText, (pageWidth - headingWidth) / 2, topMargin + 10);
 
                 // Reset font
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(11);
 
-                // Column 1 (left side)
-                let yPos = 35;
+                // Column 1 (left side) - positioned at top
+                let yPos = topMargin + 25;
                 
                 // Column 1 - Row 1: Name of Dealer
                 pdf.setFont('helvetica', 'bold');
@@ -2122,8 +2127,8 @@
                 pdf.setFont('helvetica', 'normal');
                 pdf.text(complaint.ticketId ? String(complaint.ticketId) : '-', leftMargin + 45, yPos);
 
-                // Column 2 (right side)
-                yPos = 35;
+                // Column 2 (right side) - positioned at top
+                yPos = topMargin + 25;
                 
                 // Column 2 - Row 1: Customer name
                 pdf.setFont('helvetica', 'normal');
@@ -2144,8 +2149,8 @@
                 yPos += lineHeight;
                 pdf.setFont('helvetica', 'normal');
                 const address = complaint.address || '-';
-                // Wrap address if too long
-                const addressLines = pdf.splitTextToSize(address, 80); // Max width 80mm
+                // Wrap address if too long (adjusted for portrait width)
+                const addressLines = pdf.splitTextToSize(address, 90); // Max width 90mm for portrait
                 const addressHeight = addressLines.length * lineHeight * 0.8;
                 addressLines.forEach((line, index) => {
                     pdf.text(line, rightMargin, yPos + (index * lineHeight * 0.8));
@@ -2153,13 +2158,15 @@
 
                 // Table below - adjust position based on address height and column 1 height (4 rows)
                 // Column 1 has 4 rows, Column 2 has 3 rows (but address may wrap)
-                const column1Height = 35 + (4 * lineHeight); // Start at 35, 4 rows
-                const column2Height = 35 + (2 * lineHeight) + addressHeight; // Start at 35, 2 rows + address
+                const column1StartY = topMargin + 25;
+                const column2StartY = topMargin + 25;
+                const column1Height = column1StartY + (4 * lineHeight); // 4 rows
+                const column2Height = column2StartY + (2 * lineHeight) + addressHeight; // 2 rows + address
                 const maxColumnHeight = Math.max(column1Height, column2Height);
                 yPos = maxColumnHeight + 10; // Add 10mm spacing before table
                 const tableTop = yPos;
                 const tableLeft = leftMargin;
-                const tableWidth = pageWidth - (leftMargin * 2) - 10; // Leave some right margin
+                const tableWidth = pageWidth - (leftMargin * 2); // Use full width minus margins
                 const colWidth = tableWidth / 5; // 5 columns
                 const rowHeight = 8;
 
@@ -2181,7 +2188,7 @@
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(9);
                 
-                // Wrap text function - improved for landscape
+                // Wrap text function for portrait layout
                 const wrapText = (text, maxWidth) => {
                     if (!text) return '-';
                     const words = text.toString().split(' ');
@@ -2211,7 +2218,7 @@
                 const customerName = complaint.customerName || '-';
                 const remarks = complaint.reason || '-';
 
-                // Prepare data rows with text wrapping - adjusted column widths for landscape
+                // Prepare data rows with text wrapping - adjusted column widths for portrait
                 const dataRows = [
                     wrapText(complaintNo, colWidth - 6),
                     wrapText(model, colWidth - 6),
@@ -2249,9 +2256,9 @@
                 pdf.setLineWidth(0.5);
                 pdf.line(tableLeft, yPos - 2, tableLeft + tableWidth, yPos - 2);
 
-                // Customer signature at bottom right
-                const signatureY = pageHeight - 20; // 20mm from bottom
-                const signatureX = pageWidth - 100; // Right side with some margin
+                // Customer signature at bottom of content area (within top half of page)
+                const signatureY = Math.min(yPos + 15, topMargin + contentHeight - 10); // Within top half, with margin
+                const signatureX = pageWidth - 80; // Right side with some margin (adjusted for portrait)
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(10);
                 pdf.text('Customer signature: __________________________', signatureX, signatureY);
