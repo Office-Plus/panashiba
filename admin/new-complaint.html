@@ -2082,7 +2082,10 @@
                 const pageHeight = 297; // A4 portrait height (full page)
                 const contentHeight = 148; // Top half of A4 portrait (half of 297mm)
                 const leftMargin = 15;
+                const column1ValueStartX = leftMargin + 45; // Where Column 1 values start (60mm)
                 const rightMargin = 110; // Start of column 2 (adjusted for portrait width)
+                const column1MaxWidth = rightMargin - column1ValueStartX - 5; // Max width: 110 - 60 - 5 = 45mm (with 5mm gap)
+                const column2MaxWidth = pageWidth - rightMargin - 5; // Max width for Column 2 (210 - 110 - 5 = 95mm)
                 const lineHeight = 7;
                 const topMargin = 10; // Minimal top margin to position at top of page
                 
@@ -2101,42 +2104,83 @@
                 // Column 1 (left side) - positioned below heading with proper spacing
                 let yPos = headingY + 15; // 15mm below heading to avoid overlap
                 
+                // Helper function to wrap text for Column 1
+                const wrapColumn1Text = (text, startX) => {
+                    if (!text || text === '-') return [{ text: '-', x: startX, y: yPos }];
+                    // Use column1MaxWidth directly (already calculated with safe gap)
+                    const lines = pdf.splitTextToSize(text, column1MaxWidth);
+                    return lines.map((line, index) => ({
+                        text: line,
+                        x: startX,
+                        y: yPos + (index * lineHeight * 0.9)
+                    }));
+                };
+                
                 // Column 1 - Row 1: Name of Dealer
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('Name of Dealer:', leftMargin, yPos);
                 pdf.setFont('helvetica', 'normal');
-                pdf.text(complaint.dealer || '-', leftMargin + 45, yPos);
+                const dealerLines = wrapColumn1Text(complaint.dealer || '-', column1ValueStartX);
+                dealerLines.forEach(line => {
+                    pdf.text(line.text, line.x, line.y);
+                });
+                // Update yPos if dealer name wrapped to multiple lines
+                if (dealerLines.length > 1) {
+                    yPos = dealerLines[dealerLines.length - 1].y;
+                }
                 
                 // Column 1 - Row 2: City
                 yPos += lineHeight;
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('City:', leftMargin, yPos);
                 pdf.setFont('helvetica', 'normal');
-                pdf.text('-', leftMargin + 45, yPos);
+                const cityLines = wrapColumn1Text('-', column1ValueStartX);
+                cityLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (cityLines.length > 1) yPos = cityLines[cityLines.length - 1].y;
                 
                 // Column 1 - Row 3: Phone no
                 yPos += lineHeight;
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('Phone no:', leftMargin, yPos);
                 pdf.setFont('helvetica', 'normal');
-                pdf.text(complaint.phoneNumber || '-', leftMargin + 45, yPos);
+                const phoneLines = wrapColumn1Text(complaint.phoneNumber || '-', column1ValueStartX);
+                phoneLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (phoneLines.length > 1) yPos = phoneLines[phoneLines.length - 1].y;
                 
                 // Column 1 - Row 4: Ticket ID
                 yPos += lineHeight;
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('Ticket ID:', leftMargin, yPos);
                 pdf.setFont('helvetica', 'normal');
-                pdf.text(complaint.ticketId ? String(complaint.ticketId) : '-', leftMargin + 45, yPos);
+                const ticketLines = wrapColumn1Text(complaint.ticketId ? String(complaint.ticketId) : '-', column1ValueStartX);
+                ticketLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (ticketLines.length > 1) yPos = ticketLines[ticketLines.length - 1].y;
 
                 // Column 2 (right side) - positioned at same level as Column 1
-                yPos = headingY + 15; // Same starting position as Column 1
+                let yPos2 = headingY + 15; // Same starting position as Column 1
+                
+                // Helper function to wrap text for Column 2
+                const wrapColumn2Text = (text, startX) => {
+                    if (!text || text === '-') return [{ text: '-', x: startX, y: yPos2 }];
+                    const maxWidth = column2MaxWidth; // Available width for Column 2
+                    const lines = pdf.splitTextToSize(text, maxWidth);
+                    return lines.map((line, index) => ({
+                        text: line,
+                        x: startX,
+                        y: yPos2 + (index * lineHeight * 0.9)
+                    }));
+                };
                 
                 // Column 2 - Row 1: Customer name
                 pdf.setFont('helvetica', 'normal');
-                pdf.text(complaint.customerName || '-', rightMargin, yPos);
+                const customerLines = wrapColumn2Text(complaint.customerName || '-', rightMargin);
+                customerLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (customerLines.length > 1) {
+                    yPos2 = customerLines[customerLines.length - 1].y;
+                }
                 
                 // Column 2 - Row 2: Complaint date and time
-                yPos += lineHeight;
+                yPos2 += lineHeight;
                 let complaintDateTime = complaint.complaintDate || '';
                 if (complaint.createdAt) {
                     const complaintTime = formatTimeFromCreatedAt(complaint.createdAt);
@@ -2144,26 +2188,32 @@
                         complaintDateTime += ' ' + complaintTime;
                     }
                 }
-                pdf.text(complaintDateTime || '-', rightMargin, yPos);
+                const dateTimeLines = wrapColumn2Text(complaintDateTime || '-', rightMargin);
+                dateTimeLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (dateTimeLines.length > 1) {
+                    yPos2 = dateTimeLines[dateTimeLines.length - 1].y;
+                }
                 
                 // Column 2 - Row 3: Address
-                yPos += lineHeight;
+                yPos2 += lineHeight;
                 pdf.setFont('helvetica', 'normal');
                 const address = complaint.address || '-';
                 // Wrap address if too long (adjusted for portrait width)
-                const addressLines = pdf.splitTextToSize(address, 90); // Max width 90mm for portrait
-                const addressHeight = addressLines.length * lineHeight * 0.8;
+                const addressLines = pdf.splitTextToSize(address, column2MaxWidth); // Use column2MaxWidth
+                const addressHeight = addressLines.length * lineHeight * 0.9;
                 addressLines.forEach((line, index) => {
-                    pdf.text(line, rightMargin, yPos + (index * lineHeight * 0.8));
+                    pdf.text(line, rightMargin, yPos2 + (index * lineHeight * 0.9));
                 });
+                // Update yPos2 if address wrapped
+                if (addressLines.length > 1) {
+                    yPos2 = yPos2 + (addressLines.length - 1) * lineHeight * 0.9;
+                }
 
-                // Table below - adjust position based on address height and column 1 height (4 rows)
-                // Column 1 has 4 rows, Column 2 has 3 rows (but address may wrap)
-                const column1StartY = headingY + 15; // Starting Y position for Column 1
-                const column2StartY = headingY + 15; // Starting Y position for Column 2
-                const column1Height = column1StartY + (4 * lineHeight); // 4 rows
-                const column2Height = column2StartY + (2 * lineHeight) + addressHeight; // 2 rows + address
-                const maxColumnHeight = Math.max(column1Height, column2Height);
+                // Table below - adjust position based on actual content height from both columns
+                // Use the actual yPos values from both columns to find the maximum height
+                const column1EndY = yPos; // Final Y position from Column 1 (after all rows)
+                const column2EndY = yPos2; // Final Y position from Column 2 (after address)
+                const maxColumnHeight = Math.max(column1EndY, column2EndY);
                 yPos = maxColumnHeight + 10; // Add 10mm spacing before table
                 const tableTop = yPos;
                 const tableLeft = leftMargin;
