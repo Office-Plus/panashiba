@@ -2091,14 +2091,15 @@
                 pdf.setFont('helvetica', 'bold');
                 const headingText = 'Distributor / Dealer visit';
                 const headingWidth = pdf.getTextWidth(headingText);
-                pdf.text(headingText, (pageWidth - headingWidth) / 2, topMargin + 10);
+                const headingY = topMargin + 12; // Heading position
+                pdf.text(headingText, (pageWidth - headingWidth) / 2, headingY);
 
                 // Reset font
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(11);
 
-                // Column 1 (left side) - positioned at top
-                let yPos = topMargin + 25;
+                // Column 1 (left side) - positioned below heading with proper spacing
+                let yPos = headingY + 15; // 15mm below heading to avoid overlap
                 
                 // Column 1 - Row 1: Name of Dealer
                 pdf.setFont('helvetica', 'bold');
@@ -2127,8 +2128,8 @@
                 pdf.setFont('helvetica', 'normal');
                 pdf.text(complaint.ticketId ? String(complaint.ticketId) : '-', leftMargin + 45, yPos);
 
-                // Column 2 (right side) - positioned at top
-                yPos = topMargin + 25;
+                // Column 2 (right side) - positioned at same level as Column 1
+                yPos = headingY + 15; // Same starting position as Column 1
                 
                 // Column 2 - Row 1: Customer name
                 pdf.setFont('helvetica', 'normal');
@@ -2158,8 +2159,8 @@
 
                 // Table below - adjust position based on address height and column 1 height (4 rows)
                 // Column 1 has 4 rows, Column 2 has 3 rows (but address may wrap)
-                const column1StartY = topMargin + 25;
-                const column2StartY = topMargin + 25;
+                const column1StartY = headingY + 15; // Starting Y position for Column 1
+                const column2StartY = headingY + 15; // Starting Y position for Column 2
                 const column1Height = column1StartY + (4 * lineHeight); // 4 rows
                 const column2Height = column2StartY + (2 * lineHeight) + addressHeight; // 2 rows + address
                 const maxColumnHeight = Math.max(column1Height, column2Height);
