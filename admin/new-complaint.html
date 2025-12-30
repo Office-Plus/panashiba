@@ -3136,8 +3136,10 @@
                         .update(complaintData);
                     showNotification(`Complaint updated successfully! Ticket ID: ${ticketId}`);
                     
-                    // Send Telegram notification for update
-                    await sendTelegramNotification(complaintData, true);
+                    // Send Telegram notification for update (skip if status is being changed to Closed)
+                    if (statusValue !== 'Closed') {
+                        await sendTelegramNotification(complaintData, true);
+                    }
                 } else {
                     // Check if complaint with same job number already exists (for new complaints only)
                     console.log('=== CHECKING FOR DUPLICATE COMPLAINT NUMBER ===');
