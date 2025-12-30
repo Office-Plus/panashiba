@@ -3136,8 +3136,8 @@
                         .update(complaintData);
                     showNotification(`Complaint updated successfully! Ticket ID: ${ticketId}`);
                     
-                    // Send Telegram notification for update (skip if status is being changed to Closed)
-                    if (statusValue !== 'Closed') {
+                    // Send Telegram notification for update (skip if status is being changed to Closed or Cancelled)
+                    if (statusValue !== 'Closed' && statusValue !== 'Cancelled') {
                         await sendTelegramNotification(complaintData, true);
                     }
                 } else {
