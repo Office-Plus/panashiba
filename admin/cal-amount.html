@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculate Amount - Closed Complaints</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 900;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #2196F3;
+        }
+
+        .welcome-message {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 70px auto 0;
+            padding: 20px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .form-group select {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+            margin-bottom: 15px;
+        }
+
+        .filter-row .form-group {
+            margin-bottom: 0;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1976D2;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-success:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .amount-cell {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .summary-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .summary-item {
+            font-size: 18px;
+        }
+
+        .summary-item strong {
+            color: #333;
+        }
+
+        .summary-item .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .summary-item .amount-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.visible {
+            display: block;
+        }
+
+        .action-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="menuContainer"></div>
+
+    <div class="header">
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="welcome-message" id="welcomeMessage"></div>
+    </div>
+
+    <div class="container">
+        <h1>Calculate Amount - Closed Complaints</h1>
+
+        <div class="form-container">
+            <div class="filter-row">
+                <div class="form-group">
+                    <label for="agentSelect">Select Agent</label>
+                    <select id="agentSelect">
+                        <option value="">-- Select Agent --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="monthSelect">Select Month</label>
+                    <select id="monthSelect">
+                        <option value="">-- Select Month --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" id="showDataBtn">Show Data</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingMsg" class="loading" style="display: none;">Loading data...</div>
+
+        <div id="noDataMsg" class="no-data" style="display: none;">
+            No closed complaints found for the selected agent and month.
+        </div>
+
+        <div id="resultsSection" class="results-section">
+            <div class="action-buttons">
+                <button type="button" class="btn btn-success" id="exportExcelBtn" disabled>Export to Excel</button>
+            </div>
+
+            <table id="complaintsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Amount</th>
+                        <th>Job Number</th>
+                        <th>Ticket ID</th>
+                        <th>Customer Name</th>
+                        <th>Brand</th>
+                        <th>Category</th>
+                        <th>Closed Date</th>
+                    </tr>
+                </thead>
+                <tbody id="complaintsTableBody"></tbody>
+            </table>
+
+            <div id="summaryBox" class="summary-box" style="display: none;">
+                <div class="summary-item">
+                    <strong>Total Complaints Closed:</strong>
+                    <span class="value" id="totalComplaints">0</span>
+                </div>
+                <div class="summary-item">
+                    <strong>Total Amount Due:</strong>
+                    <span class="amount-value" id="totalAmount">Rs 0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="menu.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        const AMOUNT_PER_COMPLAINT = 300;
+
+        let complaintsData = [];
+
+        fetch('menu.html')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('menuContainer').innerHTML = html;
+            });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const userEmail = localStorage.getItem('userEmail');
+            const userId = localStorage.getItem('userId');
+
+            if (!userEmail || !userId) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById('welcomeMessage').textContent = `Welcome, ${userEmail}`;
+
+            loadAgents();
+            loadMonthOptions();
+        });
+
+        function loadMonthOptions() {
+            const monthSelect = document.getElementById('monthSelect');
+            monthSelect.innerHTML = '<option value="">-- Select Month --</option>';
+
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const now = new Date();
+
+            for (let i = 0; i < 8; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const year = d.getFullYear();
+                const month = d.getMonth();
+                const value = `${year}-${String(month + 1).padStart(2, '0')}`;
+                const label = `${monthNames[month]} ${year}`;
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                if (i === 0) option.selected = true;
+                monthSelect.appendChild(option);
+            }
+        }
+
+        async function loadAgents() {
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+                if (!companyCode) {
+                    console.error('Company code not found');
+                    return;
+                }
+
+                const agentsSnapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('masters')
+                    .collection('serviceagents')
+                    .where('status', '==', 'A')
+                    .get();
+
+                const agents = [];
+                agentsSnapshot.forEach(doc => {
+                    agents.push({ id: doc.id, name: doc.data().agentName });
+                });
+                agents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                const agentSelect = document.getElementById('agentSelect');
+                agentSelect.innerHTML = '<option value="">-- Select Agent --</option>';
+                agents.forEach(agent => {
+                    const option = document.createElement('option');
+                    option.value = agent.id;
+                    option.textContent = agent.name;
+                    agentSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading agents:', error);
+            }
+        }
+
+        function formatClosedDate(closedAt) {
+            if (!closedAt) return '';
+
+            let date = null;
+            if (closedAt.toDate && typeof closedAt.toDate === 'function') {
+                date = closedAt.toDate();
+            } else if (closedAt instanceof Date) {
+                date = closedAt;
+            } else if (closedAt.seconds) {
+                date = new Date(closedAt.seconds * 1000);
+            } else if (typeof closedAt === 'string') {
+                date = new Date(closedAt);
+            }
+
+            if (date && !isNaN(date.getTime())) {
+                return date.toLocaleString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            return String(closedAt);
+        }
+
+        function getClosedAtDate(closedAt) {
+            if (!closedAt) return null;
+            if (closedAt.toDate && typeof closedAt.toDate === 'function') {
+                return closedAt.toDate();
+            }
+            if (closedAt instanceof Date) return closedAt;
+            if (closedAt.seconds) return new Date(closedAt.seconds * 1000);
+            if (typeof closedAt === 'string') return new Date(closedAt);
+            return null;
+        }
+
+        function isInSelectedMonth(closedAt, monthValue) {
+            const date = getClosedAtDate(closedAt);
+            if (!date || !monthValue) return false;
+            const [year, month] = monthValue.split('-').map(Number);
+            return date.getFullYear() === year && date.getMonth() + 1 === month;
+        }
+
+        document.getElementById('showDataBtn').addEventListener('click', async function() {
+            const agentId = document.getElementById('agentSelect').value;
+            const monthValue = document.getElementById('monthSelect').value;
+
+            if (!agentId) {
+                alert('Please select an agent.');
+                return;
+            }
+            if (!monthValue) {
+                alert('Please select a month.');
+                return;
+            }
+
+            const loadingMsg = document.getElementById('loadingMsg');
+            const noDataMsg = document.getElementById('noDataMsg');
+            const resultsSection = document.getElementById('resultsSection');
+            const showDataBtn = document.getElementById('showDataBtn');
+
+            loadingMsg.style.display = 'block';
+            noDataMsg.style.display = 'none';
+            resultsSection.classList.remove('visible');
+            showDataBtn.disabled = true;
+
+            try {
+                const companyCode = localStorage.getItem('companyCode');
+                if (!companyCode) {
+                    throw new Error('Company code not found');
+                }
+
+                const snapshot = await db.collection('complaints')
+                    .doc('cmplts')
+                    .collection(companyCode)
+                    .doc('complaints')
+                    .collection('complaints-coll')
+                    .where('companyCode', '==', companyCode)
+                    .where('status', '==', 'Closed')
+                    .where('agentId', '==', agentId)
+                    .get();
+
+                complaintsData = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(c => isInSelectedMonth(c.closedAt, monthValue))
+                    .sort((a, b) => {
+                        const da = getClosedAtDate(a.closedAt);
+                        const db_ = getClosedAtDate(b.closedAt);
+                        return (db_ || 0) - (da || 0);
+                    });
+
+                const tbody = document.getElementById('complaintsTableBody');
+                tbody.innerHTML = '';
+
+                if (complaintsData.length === 0) {
+                    loadingMsg.style.display = 'none';
+                    noDataMsg.style.display = 'block';
+                    document.getElementById('exportExcelBtn').disabled = true;
+                    document.getElementById('summaryBox').style.display = 'none';
+                } else {
+                    complaintsData.forEach((complaint, index) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${index + 1}</td>
+                            <td class="amount-cell">Rs ${AMOUNT_PER_COMPLAINT}</td>
+                            <td>${complaint.jobNumber || '-'}</td>
+                            <td>${complaint.ticketId || '-'}</td>
+                            <td>${complaint.customerName || '-'}</td>
+                            <td>${complaint.brand || '-'}</td>
+                            <td>${complaint.category || '-'}</td>
+                            <td>${formatClosedDate(complaint.closedAt)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    const totalAmount = complaintsData.length * AMOUNT_PER_COMPLAINT;
+                    document.getElementById('totalComplaints').textContent = complaintsData.length;
+                    document.getElementById('totalAmount').textContent = `Rs ${totalAmount.toLocaleString('en-IN')}`;
+                    document.getElementById('summaryBox').style.display = 'flex';
+
+                    loadingMsg.style.display = 'none';
+                    resultsSection.classList.add('visible');
+                    document.getElementById('exportExcelBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error loading complaints:', error);
+                alert('Error loading data. Please try again.');
+                noDataMsg.style.display = 'block';
+            } finally {
+                loadingMsg.style.display = 'none';
+                showDataBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('exportExcelBtn').addEventListener('click', function() {
+            if (typeof XLSX === 'undefined') {
+                alert('Excel library not loaded. Please refresh the page.');
+                return;
+            }
+
+            if (complaintsData.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            const headers = ['#', 'Amount (Rs)', 'Job Number', 'Ticket ID', 'Customer Name', 'Brand', 'Category', 'Closed Date'];
+            const excelData = [headers];
+
+            complaintsData.forEach((complaint, index) => {
+                excelData.push([
+                    index + 1,
+                    AMOUNT_PER_COMPLAINT,
+                    complaint.jobNumber || '',
+                    complaint.ticketId || '',
+                    complaint.customerName || '',
+                    complaint.brand || '',
+                    complaint.category || '',
+                    formatClosedDate(complaint.closedAt)
+                ]);
+            });
+
+            excelData.push([]);
+            excelData.push(['Total Complaints Closed', complaintsData.length]);
+            excelData.push(['Total Amount Due (Rs)', complaintsData.length * AMOUNT_PER_COMPLAINT]);
+
+            const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Closed Complaints');
+
+            const agentName = document.getElementById('agentSelect').options[document.getElementById('agentSelect').selectedIndex].text;
+            const monthLabel = document.getElementById('monthSelect').options[document.getElementById('monthSelect').selectedIndex].text;
+            const filename = `Closed_Complaints_${agentName.replace(/\s+/g, '_')}_${monthLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+            XLSX.writeFile(workbook, filename);
+        });
+    </script>
+</body>
+</html>
