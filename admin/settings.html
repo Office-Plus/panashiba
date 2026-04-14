@@ -515,18 +515,29 @@
                     await usersCollection.doc(documentIdToUse).set(dataToSave, { merge: true });
                 }
 
-                // Save all data to localStorage
-                localStorage.setItem('companyCode', companyCode);
-                localStorage.setItem('normalizedCompanyCode', normalizedCompanyCode);
-                localStorage.setItem('userlevel', dataToSave.userlevel);
-                localStorage.setItem('userRights', dataToSave.userRights.join(','));
+                // Fetch latest saved user doc and sync localStorage from DB values
+                const latestSavedDoc = await usersCollection.doc(documentIdToUse).get();
+                const latestUserData = latestSavedDoc.exists ? (latestSavedDoc.data() || {}) : dataToSave;
+                const latestRights = normalizeUserRights(latestUserData.userRights);
+                const latestCompanyCode = latestUserData.companyCode || companyCode;
+                const latestNormalizedCompanyCode = (latestUserData.normalizedCompanyCode || normalizedCompanyCode || '').toUpperCase().replace(/\s+/g, '');
+                const latestUserLevel = latestUserData.userlevel || 'user';
+
+                localStorage.setItem('companyCode', latestCompanyCode);
+                localStorage.setItem('normalizedCompanyCode', latestNormalizedCompanyCode);
+                localStorage.setItem('userlevel', latestUserLevel);
+                localStorage.setItem('userRights', latestRights.join(','));
+
+                // Keep settings field aligned with latest saved value
+                document.getElementById('companyCode').value = latestCompanyCode;
                 
                 // Debug logging for all saved data
-                console.log('[admin/settings.html] All data saved to localStorage:', {
-                    companyCode: companyCode,
-                    normalizedCompanyCode: normalizedCompanyCode,
-                    userlevel: dataToSave.userlevel,
-                    userRights: dataToSave.userRights.join(',')
+                console.log('[admin/settings.html] Latest DB user data synced to localStorage:', {
+                    companyCode: latestCompanyCode,
+                    normalizedCompanyCode: latestNormalizedCompanyCode,
+                    userlevel: latestUserLevel,
+                    userRights: latestRights.join(','),
+                    sourcePath: `${usersCollectionPath}/${documentIdToUse}`
                 });
                 console.log('[admin/settings.html] localStorage userRights raw value:', localStorage.getItem('userRights'));
                 

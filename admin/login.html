@@ -316,21 +316,38 @@
             const usersGroup = collectionGroup(db, 'users');
             let matchedDoc = null;
             let matchedSource = null;
+            const userUid = (user.uid || '').trim();
+            const userEmail = (user.email || '').trim();
+            const userEmailLower = userEmail.toLowerCase();
 
-            if (user.uid) {
-                const byUid = await getDocs(query(usersGroup, where('uid', '==', user.uid), limit(1)));
-                if (!byUid.empty) {
-                    matchedDoc = byUid.docs[0];
-                    matchedSource = 'uid';
-                }
+            // Avoid index-dependent collectionGroup + where queries.
+            // Fetch collectionGroup once and filter client-side.
+            const allUsersSnapshot = await getDocs(usersGroup);
+            const allUserDocs = allUsersSnapshot.docs || [];
+            console.log('[admin/login.html] Auto-resolve scanning users collectionGroup docs:', allUserDocs.length);
+
+            if (userUid) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.uid || '').toString().trim() === userUid;
+                }) || null;
+                if (matchedDoc) matchedSource = 'uid';
             }
 
-            if (!matchedDoc && user.email) {
-                const byEmail = await getDocs(query(usersGroup, where('email', '==', user.email), limit(1)));
-                if (!byEmail.empty) {
-                    matchedDoc = byEmail.docs[0];
-                    matchedSource = 'email-exact';
-                }
+            if (!matchedDoc && userEmail) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.email || '').toString().trim() === userEmail;
+                }) || null;
+                if (matchedDoc) matchedSource = 'email-exact';
+            }
+
+            if (!matchedDoc && userEmailLower) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.email || '').toString().trim().toLowerCase() === userEmailLower;
+                }) || null;
+                if (matchedDoc) matchedSource = 'email-case-insensitive';
             }
 
             if (!matchedDoc) {

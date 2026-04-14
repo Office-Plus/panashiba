@@ -553,8 +553,8 @@
                     const userRights = userData.userRights || [];
                     const companyCode = userData.companyCode || '';
                     
-                    // Store userRights in localStorage for menu filtering
-                    localStorage.setItem('userRights', JSON.stringify(userRights));
+                    // Store userRights in the same comma-separated format used by login/menu
+                    localStorage.setItem('userRights', Array.isArray(userRights) ? userRights.join(',') : '');
                     
                     // Check if company code exists
                     if (!companyCode) {
