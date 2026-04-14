@@ -179,7 +179,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, collectionGroup, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
@@ -212,10 +212,44 @@
             const activationTill = new Date();
             activationTill.setDate(activationTill.getDate() + 7);
 
-            // First, check if a user with this email already exists
+            // First, check if a user exists by UID or by email in the selected company
             const usersCollectionRef = collection(db, 'complaints', 'cmplts', companyCode, 'masters', 'users');
-            const q = query(usersCollectionRef, where('email', '==', user.email));
-            const querySnapshot = await getDocs(q);
+            let querySnapshot = null;
+            let matchedSource = null;
+
+            if (user.uid) {
+                const uidQuery = query(usersCollectionRef, where('uid', '==', user.uid), limit(1));
+                const uidSnapshot = await getDocs(uidQuery);
+                if (!uidSnapshot.empty) {
+                    querySnapshot = uidSnapshot;
+                    matchedSource = 'uid';
+                }
+            }
+
+            if (!querySnapshot && user.email) {
+                const emailQuery = query(usersCollectionRef, where('email', '==', user.email), limit(1));
+                const emailSnapshot = await getDocs(emailQuery);
+                if (!emailSnapshot.empty) {
+                    querySnapshot = emailSnapshot;
+                    matchedSource = 'email-exact';
+                }
+            }
+
+            if (!querySnapshot && user.email) {
+                const allUsersSnapshot = await getDocs(usersCollectionRef);
+                const emailLower = user.email.trim().toLowerCase();
+                const caseInsensitiveDoc = allUsersSnapshot.docs.find(d => {
+                    const dbEmail = (d.data().email || '').toString().trim().toLowerCase();
+                    return dbEmail && dbEmail === emailLower;
+                });
+                if (caseInsensitiveDoc) {
+                    querySnapshot = { empty: false, docs: [caseInsensitiveDoc] };
+                    matchedSource = 'email-case-insensitive';
+                }
+            }
+
+            console.log('[admin/login.html] handleUserRecord path:', `complaints/cmplts/${companyCode}/masters/users`);
+            console.log('[admin/login.html] handleUserRecord matched source:', matchedSource || 'none');
 
             let existingDocId = null;
             let userData = null;
@@ -233,7 +267,7 @@
                     uid: user.uid // Update UID in case it changed (different auth method)
                 });
                 
-                console.log('User already exists, updated lastUpdated field');
+                console.log('[admin/login.html] User already exists, updated lastUpdated field. docId:', existingDocId);
             } else {
                 // No user with this email exists, create new record
                 const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', user.uid);
@@ -254,7 +288,7 @@
                     companyCode: companyCode
                 };
                 
-                console.log('New user created');
+                console.log('[admin/login.html] New user created. docId:', user.uid);
             }
 
             // Store userRights and userlevel in localStorage
@@ -265,8 +299,76 @@
             }
             localStorage.setItem('userlevel', userData.userlevel || 'user');
             localStorage.setItem('companyCode', userData.companyCode || companyCode);
+            localStorage.setItem('normalizedCompanyCode', (userData.companyCode || companyCode).toUpperCase().replace(/\s+/g, ''));
+            console.log('[admin/login.html] Saved to localStorage from handleUserRecord:', {
+                companyCode: localStorage.getItem('companyCode'),
+                userlevel: localStorage.getItem('userlevel'),
+                userRights: localStorage.getItem('userRights')
+            });
             
             return true;
+        }
+
+        // Auto-detect company + rights for same Gmail on new PC
+        async function tryAutoResolveCompanyAndRights(user) {
+            if (!user) return null;
+
+            const usersGroup = collectionGroup(db, 'users');
+            let matchedDoc = null;
+            let matchedSource = null;
+
+            if (user.uid) {
+                const byUid = await getDocs(query(usersGroup, where('uid', '==', user.uid), limit(1)));
+                if (!byUid.empty) {
+                    matchedDoc = byUid.docs[0];
+                    matchedSource = 'uid';
+                }
+            }
+
+            if (!matchedDoc && user.email) {
+                const byEmail = await getDocs(query(usersGroup, where('email', '==', user.email), limit(1)));
+                if (!byEmail.empty) {
+                    matchedDoc = byEmail.docs[0];
+                    matchedSource = 'email-exact';
+                }
+            }
+
+            if (!matchedDoc) {
+                console.log('[admin/login.html] Auto-resolve: no matching user document found in collectionGroup(users).');
+                return null;
+            }
+
+            const userData = matchedDoc.data() || {};
+            const pathParts = matchedDoc.ref.path.split('/');
+            const companyFromPath = pathParts.length >= 3 ? pathParts[2] : '';
+            const companyCode = userData.companyCode || companyFromPath;
+            const normalizedCompanyCode = (companyCode || '').toUpperCase().replace(/\s+/g, '');
+            const userRights = Array.isArray(userData.userRights) ? userData.userRights : [];
+
+            console.log('[admin/login.html] Auto-resolve source:', matchedSource);
+            console.log('[admin/login.html] Auto-resolve document path:', matchedDoc.ref.path);
+            console.log('[admin/login.html] Auto-resolve fetched values:', {
+                companyCode,
+                normalizedCompanyCode,
+                userlevel: userData.userlevel || 'user',
+                userRights
+            });
+
+            if (!companyCode) return null;
+
+            localStorage.setItem('companyCode', companyCode);
+            localStorage.setItem('normalizedCompanyCode', normalizedCompanyCode);
+            localStorage.setItem('userlevel', userData.userlevel || 'user');
+            localStorage.setItem('userRights', userRights.join(','));
+
+            console.log('[admin/login.html] Auto-resolve saved to localStorage:', {
+                companyCode: localStorage.getItem('companyCode'),
+                normalizedCompanyCode: localStorage.getItem('normalizedCompanyCode'),
+                userlevel: localStorage.getItem('userlevel'),
+                userRights: localStorage.getItem('userRights')
+            });
+
+            return { companyCode };
         }
 
         // Check if user is already logged in
@@ -277,9 +379,14 @@
                 if (userEmail && userId) {
                     let companyCode = localStorage.getItem('companyCode');
                     if (!companyCode) {
-                        // No companyCode, redirect to settings
-                        window.location.href = 'settings.html?highlight=companyCode';
-                        return;
+                        const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                        if (autoResolved && autoResolved.companyCode) {
+                            companyCode = autoResolved.companyCode;
+                        } else {
+                            // No companyCode and no DB match, redirect to settings
+                            window.location.href = 'settings.html?highlight=companyCode';
+                            return;
+                        }
                     }
                     const ok = await handleUserRecord(user, companyCode);
                     if (!ok) {
@@ -326,9 +433,14 @@
                 localStorage.setItem('userId', user.uid);
                 let companyCode = localStorage.getItem('companyCode');
                 if (!companyCode) {
-                    // No companyCode, redirect to settings
-                    window.location.href = 'settings.html?highlight=companyCode';
-                    return;
+                    const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                    if (autoResolved && autoResolved.companyCode) {
+                        companyCode = autoResolved.companyCode;
+                    } else {
+                        // No companyCode and no DB match, redirect to settings
+                        window.location.href = 'settings.html?highlight=companyCode';
+                        return;
+                    }
                 }
                 const ok = await handleUserRecord(user, companyCode);
                 if (!ok) {
@@ -370,9 +482,14 @@
                 localStorage.setItem('userId', user.uid);
                 let companyCode = localStorage.getItem('companyCode');
                 if (!companyCode) {
-                    // No companyCode, redirect to settings
-                    window.location.href = 'settings.html?highlight=companyCode';
-                    return;
+                    const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                    if (autoResolved && autoResolved.companyCode) {
+                        companyCode = autoResolved.companyCode;
+                    } else {
+                        // No companyCode and no DB match, redirect to settings
+                        window.location.href = 'settings.html?highlight=companyCode';
+                        return;
+                    }
                 }
                 const ok = await handleUserRecord(user, companyCode);
                 if (!ok) {
