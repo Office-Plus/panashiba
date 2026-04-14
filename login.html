@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Complaint Manager Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo img {
+            height: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .google-btn {
+            background-color: white;
+            color: #757575;
+            border: 1px solid #ddd;
+            padding: 12px 20px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            margin: 20px 0;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+
+        .google-btn:hover {
+            background-color: #f5f5f5;
+        }
+
+        .google-btn img {
+            width: 18px;
+            height: 18px;
+        }
+
+        .or-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background-color: #ddd;
+        }
+
+        .or-divider::before { left: 0; }
+        .or-divider::after { right: 0; }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .login-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .login-btn:hover {
+            background-color: #45a049;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .register-link a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        .version {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <span style="font-family: 'Arial', sans-serif; font-size: 32px; font-weight: bold; background: linear-gradient(45deg, #2196F3, #4CAF50); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Complaint Manager</span>
+        </div>
+        <h1>Login to Admin</h1>
+        
+        <button class="google-btn" onclick="signInWithGoogle()">
+            <span style="font-family: 'Arial', sans-serif; font-size: 20px; font-weight: bold; color: #4285F4;">G</span>
+            Sign in with Google
+        </button>
+        
+        <div class="or-divider">OR</div>
+
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+
+        <div class="register-link">
+            Don't have an account? <a href="register.html">Register</a>
+        </div>
+        <div class="version">(Version <span id="appVersion">Loading...</span>)</div>
+    </div>
+
+    <script src="version-config.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, collectionGroup, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvTaQfcJsj7nGSOQxEdLjCbCenmDEC3Ns",
+            authDomain: "lovable-9c76e.firebaseapp.com",
+            projectId: "lovable-9c76e",
+            storageBucket: "lovable-9c76e.firebasestorage.app",
+            messagingSenderId: "670985612758",
+            appId: "1:670985612758:web:67928f8e0328d54c640877",
+            measurementId: "G-Q4X9B5HPJP"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // Update version display
+        document.addEventListener('DOMContentLoaded', function() {
+            const versionSpan = document.getElementById('appVersion');
+            if (versionSpan && window.APP_VERSION) {
+                versionSpan.textContent = window.APP_VERSION;
+            }
+        });
+
+        // Function to handle user record creation/update in the correct path
+        async function handleUserRecord(user, companyCode) {
+            if (!companyCode) return false;
+            
+            const currentDate = new Date();
+            const activationTill = new Date();
+            activationTill.setDate(activationTill.getDate() + 7);
+
+            // First, check if a user exists by UID or by email in the selected company
+            const usersCollectionRef = collection(db, 'complaints', 'cmplts', companyCode, 'masters', 'users');
+            let querySnapshot = null;
+            let matchedSource = null;
+
+            if (user.uid) {
+                const uidQuery = query(usersCollectionRef, where('uid', '==', user.uid), limit(1));
+                const uidSnapshot = await getDocs(uidQuery);
+                if (!uidSnapshot.empty) {
+                    querySnapshot = uidSnapshot;
+                    matchedSource = 'uid';
+                }
+            }
+
+            if (!querySnapshot && user.email) {
+                const emailQuery = query(usersCollectionRef, where('email', '==', user.email), limit(1));
+                const emailSnapshot = await getDocs(emailQuery);
+                if (!emailSnapshot.empty) {
+                    querySnapshot = emailSnapshot;
+                    matchedSource = 'email-exact';
+                }
+            }
+
+            if (!querySnapshot && user.email) {
+                const allUsersSnapshot = await getDocs(usersCollectionRef);
+                const emailLower = user.email.trim().toLowerCase();
+                const caseInsensitiveDoc = allUsersSnapshot.docs.find(d => {
+                    const dbEmail = (d.data().email || '').toString().trim().toLowerCase();
+                    return dbEmail && dbEmail === emailLower;
+                });
+                if (caseInsensitiveDoc) {
+                    querySnapshot = { empty: false, docs: [caseInsensitiveDoc] };
+                    matchedSource = 'email-case-insensitive';
+                }
+            }
+
+            console.log('[admin/login.html] handleUserRecord path:', `complaints/cmplts/${companyCode}/masters/users`);
+            console.log('[admin/login.html] handleUserRecord matched source:', matchedSource || 'none');
+
+            let existingDocId = null;
+            let userData = null;
+
+            if (!querySnapshot.empty) {
+                // User with this email already exists
+                const existingDoc = querySnapshot.docs[0];
+                existingDocId = existingDoc.id;
+                userData = existingDoc.data();
+                
+                // Update the existing user record with lastUpdated
+                const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', existingDocId);
+                await updateDoc(userRef, {
+                    lastUpdated: currentDate,
+                    uid: user.uid // Update UID in case it changed (different auth method)
+                });
+                
+                console.log('[admin/login.html] User already exists, updated lastUpdated field. docId:', existingDocId);
+            } else {
+                // No user with this email exists, create new record
+                const userRef = doc(db, 'complaints', 'cmplts', companyCode, 'masters', 'users', user.uid);
+                await setDoc(userRef, {
+                    email: user.email,
+                    uid: user.uid,
+                    lastUpdated: currentDate,
+                    activation_till: activationTill,
+                    createdAt: currentDate,
+                    userRights: [],
+                    userlevel: 'user',
+                    companyCode: companyCode
+                });
+                
+                userData = {
+                    userRights: [],
+                    userlevel: 'user',
+                    companyCode: companyCode
+                };
+                
+                console.log('[admin/login.html] New user created. docId:', user.uid);
+            }
+
+            // Store userRights and userlevel in localStorage
+            if (userData.userRights && Array.isArray(userData.userRights)) {
+                localStorage.setItem('userRights', userData.userRights.join(','));
+            } else {
+                localStorage.setItem('userRights', '');
+            }
+            localStorage.setItem('userlevel', userData.userlevel || 'user');
+            localStorage.setItem('companyCode', userData.companyCode || companyCode);
+            localStorage.setItem('normalizedCompanyCode', (userData.companyCode || companyCode).toUpperCase().replace(/\s+/g, ''));
+            console.log('[admin/login.html] Saved to localStorage from handleUserRecord:', {
+                companyCode: localStorage.getItem('companyCode'),
+                userlevel: localStorage.getItem('userlevel'),
+                userRights: localStorage.getItem('userRights')
+            });
+            
+            return true;
+        }
+
+        // Auto-detect company + rights for same Gmail on new PC
+        async function tryAutoResolveCompanyAndRights(user) {
+            if (!user) return null;
+
+            const usersGroup = collectionGroup(db, 'users');
+            let matchedDoc = null;
+            let matchedSource = null;
+            const userUid = (user.uid || '').trim();
+            const userEmail = (user.email || '').trim();
+            const userEmailLower = userEmail.toLowerCase();
+
+            // Avoid index-dependent collectionGroup + where queries.
+            // Fetch collectionGroup once and filter client-side.
+            const allUsersSnapshot = await getDocs(usersGroup);
+            const allUserDocs = allUsersSnapshot.docs || [];
+            console.log('[admin/login.html] Auto-resolve scanning users collectionGroup docs:', allUserDocs.length);
+
+            if (userUid) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.uid || '').toString().trim() === userUid;
+                }) || null;
+                if (matchedDoc) matchedSource = 'uid';
+            }
+
+            if (!matchedDoc && userEmail) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.email || '').toString().trim() === userEmail;
+                }) || null;
+                if (matchedDoc) matchedSource = 'email-exact';
+            }
+
+            if (!matchedDoc && userEmailLower) {
+                matchedDoc = allUserDocs.find(d => {
+                    const data = d.data() || {};
+                    return (data.email || '').toString().trim().toLowerCase() === userEmailLower;
+                }) || null;
+                if (matchedDoc) matchedSource = 'email-case-insensitive';
+            }
+
+            if (!matchedDoc) {
+                console.log('[admin/login.html] Auto-resolve: no matching user document found in collectionGroup(users).');
+                return null;
+            }
+
+            const userData = matchedDoc.data() || {};
+            const pathParts = matchedDoc.ref.path.split('/');
+            const companyFromPath = pathParts.length >= 3 ? pathParts[2] : '';
+            const companyCode = userData.companyCode || companyFromPath;
+            const normalizedCompanyCode = (companyCode || '').toUpperCase().replace(/\s+/g, '');
+            const userRights = Array.isArray(userData.userRights) ? userData.userRights : [];
+
+            console.log('[admin/login.html] Auto-resolve source:', matchedSource);
+            console.log('[admin/login.html] Auto-resolve document path:', matchedDoc.ref.path);
+            console.log('[admin/login.html] Auto-resolve fetched values:', {
+                companyCode,
+                normalizedCompanyCode,
+                userlevel: userData.userlevel || 'user',
+                userRights
+            });
+
+            if (!companyCode) return null;
+
+            localStorage.setItem('companyCode', companyCode);
+            localStorage.setItem('normalizedCompanyCode', normalizedCompanyCode);
+            localStorage.setItem('userlevel', userData.userlevel || 'user');
+            localStorage.setItem('userRights', userRights.join(','));
+
+            console.log('[admin/login.html] Auto-resolve saved to localStorage:', {
+                companyCode: localStorage.getItem('companyCode'),
+                normalizedCompanyCode: localStorage.getItem('normalizedCompanyCode'),
+                userlevel: localStorage.getItem('userlevel'),
+                userRights: localStorage.getItem('userRights')
+            });
+
+            return { companyCode };
+        }
+
+        // Check if user is already logged in
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userEmail = localStorage.getItem('userEmail');
+                const userId = localStorage.getItem('userId');
+                if (userEmail && userId) {
+                    let companyCode = localStorage.getItem('companyCode');
+                    if (!companyCode) {
+                        const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                        if (autoResolved && autoResolved.companyCode) {
+                            companyCode = autoResolved.companyCode;
+                        } else {
+                            // No companyCode and no DB match, redirect to settings
+                            window.location.href = 'settings.html?highlight=companyCode';
+                            return;
+                        }
+                    }
+                    const ok = await handleUserRecord(user, companyCode);
+                    if (!ok) {
+                        window.location.href = 'settings.html?highlight=companyCode';
+                        return;
+                    }
+                    window.location.href = 'dashboard.html';
+                } else {
+                    // If no login data in localStorage, sign out the user
+                    auth.signOut();
+                }
+            }
+        });
+
+        // Email/Password login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Clear all localStorage before signing in
+                localStorage.clear();
+                
+                // Explicitly remove specific keys to ensure they're gone
+                localStorage.removeItem('companyCode');
+                localStorage.removeItem('normalizedCompanyCode');
+                localStorage.removeItem('userRights');
+                localStorage.removeItem('userlevel');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('lastCheckedVersion');
+                
+                // Remove any complaint cache keys
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('complaintCache_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                localStorage.setItem('userEmail', user.email);
+                localStorage.setItem('userId', user.uid);
+                let companyCode = localStorage.getItem('companyCode');
+                if (!companyCode) {
+                    const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                    if (autoResolved && autoResolved.companyCode) {
+                        companyCode = autoResolved.companyCode;
+                    } else {
+                        // No companyCode and no DB match, redirect to settings
+                        window.location.href = 'settings.html?highlight=companyCode';
+                        return;
+                    }
+                }
+                const ok = await handleUserRecord(user, companyCode);
+                if (!ok) {
+                    window.location.href = 'settings.html?highlight=companyCode';
+                    return;
+                }
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error("Error during login:", error);
+                alert("Error signing in. Please check your credentials and try again.");
+            }
+        });
+
+        // Google Sign In
+        window.signInWithGoogle = async function() {
+            try {
+                // Clear all localStorage before signing in
+                localStorage.clear();
+                
+                // Explicitly remove specific keys to ensure they're gone
+                localStorage.removeItem('companyCode');
+                localStorage.removeItem('normalizedCompanyCode');
+                localStorage.removeItem('userRights');
+                localStorage.removeItem('userlevel');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('lastCheckedVersion');
+                
+                // Remove any complaint cache keys
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('complaintCache_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                localStorage.setItem('userEmail', user.email);
+                localStorage.setItem('userId', user.uid);
+                let companyCode = localStorage.getItem('companyCode');
+                if (!companyCode) {
+                    const autoResolved = await tryAutoResolveCompanyAndRights(user);
+                    if (autoResolved && autoResolved.companyCode) {
+                        companyCode = autoResolved.companyCode;
+                    } else {
+                        // No companyCode and no DB match, redirect to settings
+                        window.location.href = 'settings.html?highlight=companyCode';
+                        return;
+                    }
+                }
+                const ok = await handleUserRecord(user, companyCode);
+                if (!ok) {
+                    window.location.href = 'settings.html?highlight=companyCode';
+                    return;
+                }
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error("Error during Google sign in:", error);
+                alert("Error signing in with Google. Please try again.");
+            }
+        };
+    </script>
+</body>
+</html> 
