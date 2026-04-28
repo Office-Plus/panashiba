@@ -2156,6 +2156,15 @@
                 ticketLines.forEach(line => pdf.text(line.text, line.x, line.y));
                 if (ticketLines.length > 1) yPos = ticketLines[ticketLines.length - 1].y;
 
+                // Column 1 - Row 5: Bill No.
+                yPos += lineHeight;
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Bill No.:', leftMargin, yPos);
+                pdf.setFont('helvetica', 'normal');
+                const billLines = wrapColumn1Text(complaint.billNo || '-', column1ValueStartX);
+                billLines.forEach(line => pdf.text(line.text, line.x, line.y));
+                if (billLines.length > 1) yPos = billLines[billLines.length - 1].y;
+
                 // Column 2 (right side) - positioned at same level as Column 1
                 let yPos2 = headingY + 15; // Same starting position as Column 1
                 
