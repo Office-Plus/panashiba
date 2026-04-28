@@ -256,6 +256,7 @@
                         <th>#</th>
                         <th>Amount</th>
                         <th>Job Number</th>
+                        <th>Item Serial Number</th>
                         <th>Ticket ID</th>
                         <th>Customer Name</th>
                         <th>Brand</th>
@@ -487,6 +488,7 @@
                             <td>${index + 1}</td>
                             <td class="amount-cell">Rs ${AMOUNT_PER_COMPLAINT}</td>
                             <td>${complaint.jobNumber || '-'}</td>
+                            <td>${complaint.itemSerialNumber || '-'}</td>
                             <td>${complaint.ticketId || '-'}</td>
                             <td>${complaint.customerName || '-'}</td>
                             <td>${complaint.brand || '-'}</td>
@@ -526,7 +528,7 @@
                 return;
             }
 
-            const headers = ['#', 'Amount (Rs)', 'Job Number', 'Ticket ID', 'Customer Name', 'Brand', 'Category', 'Closed Date'];
+            const headers = ['#', 'Amount (Rs)', 'Job Number', 'Item Serial Number', 'Ticket ID', 'Customer Name', 'Brand', 'Category', 'Closed Date'];
             const excelData = [headers];
 
             complaintsData.forEach((complaint, index) => {
@@ -534,6 +536,7 @@
                     index + 1,
                     AMOUNT_PER_COMPLAINT,
                     complaint.jobNumber || '',
+                    complaint.itemSerialNumber || '',
                     complaint.ticketId || '',
                     complaint.customerName || '',
                     complaint.brand || '',
